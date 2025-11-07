@@ -23,7 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvoiceForm } from '@/components/modals/InvoiceForm';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
-import { Plus, Edit, Trash2, Search, Copy, Download, Mail, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Copy, Download, Mail, Check, X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +59,7 @@ export default function InvoicesPage() {
     id: string;
     newStatus: 'paid' | 'pending';
   } | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -218,65 +219,88 @@ export default function InvoicesPage() {
       )}
 
       {/* Filters */}
-      <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 border-neutral-200 rounded-xl">
+      <Card className="bg-white shadow-sm hover:shadow-md transition-all duration-200 border-gray-200 rounded-xl">
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select
-              value={filters.status || 'all'}
-              onValueChange={(value) =>
-                setFilters({ ...filters, status: value === 'all' ? undefined : (value as any) })
-              }
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="Client name"
-              value={filters.clientName || ''}
-              onChange={(e) =>
-                setFilters({ ...filters, clientName: e.target.value || undefined })
-              }
-            />
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                placeholder="From"
-                value={filters.dateFrom || ''}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateFrom: e.target.value || undefined })
-                }
-                className="flex-1"
-              />
-              <Input
-                type="date"
-                placeholder="To"
-                value={filters.dateTo || ''}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateTo: e.target.value || undefined })
-                }
-                className="flex-1"
-              />
-            </div>
+              {showFilters ? (
+                <>
+                  Hide <ChevronUp className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Show <ChevronDown className="h-4 w-4" />
+                </>
+              )}
+            </Button>
           </div>
-        </CardContent>
+        </CardHeader>
+        {showFilters && (
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select
+                value={filters.status || 'all'}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, status: value === 'all' ? undefined : (value as any) })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Client name"
+                value={filters.clientName || ''}
+                onChange={(e) =>
+                  setFilters({ ...filters, clientName: e.target.value || undefined })
+                }
+              />
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  placeholder="From"
+                  value={filters.dateFrom || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dateFrom: e.target.value || undefined })
+                  }
+                  className="flex-1"
+                />
+                <Input
+                  type="date"
+                  placeholder="To"
+                  value={filters.dateTo || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dateTo: e.target.value || undefined })
+                  }
+                  className="flex-1"
+                />
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Invoices Table */}
@@ -434,4 +458,3 @@ export default function InvoicesPage() {
     </PageShell>
   );
 }
-

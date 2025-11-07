@@ -23,7 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TransactionForm } from '@/components/modals/TransactionForm';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
-import { Plus, Edit, Trash2, Search, Filter } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { BatchTransactionForm } from '@/components/modals/BatchTransactionForm';
@@ -55,6 +55,7 @@ export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchTransactions();
@@ -134,77 +135,97 @@ export default function TransactionsPage() {
       {/* Filters */}
       <Card className="bg-white shadow-sm hover:shadow-md transition-all duration-200 border-gray-200 rounded-xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Filter className="h-5 w-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select
-              value={filters.type || 'all'}
-              onValueChange={(value) =>
-                setFilters({ ...filters, type: value === 'all' ? undefined : (value as any) })
-              }
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="credit">Income</SelectItem>
-                <SelectItem value="debit">Expense</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.category || 'all'}
-              onValueChange={(value) =>
-                setFilters({ ...filters, category: value === 'all' ? undefined : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                placeholder="From"
-                value={filters.dateFrom || ''}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateFrom: e.target.value || undefined })
-                }
-                className="flex-1"
-              />
-              <Input
-                type="date"
-                placeholder="To"
-                value={filters.dateTo || ''}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateTo: e.target.value || undefined })
-                }
-                className="flex-1"
-              />
-            </div>
+              {showFilters ? (
+                <>
+                  Hide <ChevronUp className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Show <ChevronDown className="h-4 w-4" />
+                </>
+              )}
+            </Button>
           </div>
-        </CardContent>
+        </CardHeader>
+        {showFilters && (
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select
+                value={filters.type || 'all'}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, type: value === 'all' ? undefined : (value as any) })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="credit">Income</SelectItem>
+                  <SelectItem value="debit">Expense</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.category || 'all'}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, category: value === 'all' ? undefined : value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  placeholder="From"
+                  value={filters.dateFrom || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dateFrom: e.target.value || undefined })
+                  }
+                  className="flex-1"
+                />
+                <Input
+                  type="date"
+                  placeholder="To"
+                  value={filters.dateTo || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dateTo: e.target.value || undefined })
+                  }
+                  className="flex-1"
+                />
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Category Cards */}
