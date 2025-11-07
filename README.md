@@ -27,14 +27,32 @@ A responsive web application for managing finances, transactions, and invoices b
 - **HTTP Client**: Axios
 - **Icons**: Lucide React
 
-## Getting Started
+## 🚀 Quick Start
 
-### Prerequisites
+### Automated Setup (Recommended)
+
+**For Mac/Linux:**
+```bash
+git clone <repository-url>
+cd "project 3"
+./setup.sh
+```
+
+**For Windows:**
+```bash
+git clone <repository-url>
+cd "project 3"
+setup.bat
+```
+
+### Manual Setup
+
+#### Prerequisites
 
 - Node.js 18+ 
 - npm or yarn
 
-### Installation
+#### Installation
 
 1. Clone the repository:
 ```bash
@@ -42,12 +60,15 @@ git clone <repository-url>
 cd "project 3"
 ```
 
-2. Install dependencies:
+2. **Quick Web App Setup:**
 ```bash
-npm install
+npm run setup:web
 ```
 
-3. Create a `.env.local` file (optional):
+3. **Complete Setup Guide:**
+See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for detailed instructions
+
+4. Create a `.env.local` file (optional):
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3000/api
 ```

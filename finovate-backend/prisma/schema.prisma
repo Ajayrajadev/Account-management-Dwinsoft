@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[]
+  invoices     Invoice[]
+  recurringTransactions RecurringTransaction[]
+
+  @@map("users")
+}
+
+model Transaction {
+  id          String      @id @default(uuid())
+  type        String
+  description String
+  category    String?
+  amount      Float
+  date        DateTime    @default(now())
+  recurring   Boolean     @default(false)
+  recurringType String?
+  recurringEndDate DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  invoiceNumber String      @unique
+  clientName  String
+  clientEmail String?
+  clientPhone String?
+  clientAddress String?
+  items       String        // JSON string of invoice items
+  subtotal    Float
+  taxAmount   Float         @default(0)
+  totalAmount Float
+  status      String        @default("PENDING")
+  issueDate   DateTime      @default(now())
+  dueDate     DateTime?
+  paidDate    DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+}
+
+model RecurringTransaction {
+  id          String      @id @default(uuid())
+  type        String
+  description String
+  category    String?
+  amount      Float
+  frequency   String
+  nextDate    DateTime
+  endDate     DateTime?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("recurring_transactions")
+}
+
+model Settings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// Note: Using String types instead of enums for SQLite compatibility
+// Valid values:
+// Role: "USER", "ADMIN", "STAFF"
+// TransactionType: "CREDIT", "DEBIT"
+// InvoiceStatus: "PENDING", "PAID", "OVERDUE", "CANCELLED"
+// RecurringType: "DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"
