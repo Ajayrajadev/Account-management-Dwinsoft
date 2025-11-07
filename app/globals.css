@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+@layer base {
+  :root {
+    /* Production-Ready Professional Design System */
+    --background: 220 14% 98%; /* #f9fafb - refined neutral background */
+    --foreground: 220 26% 14%; /* #374151 - professional text */
+    --card: 0 0% 100%; /* #ffffff - pure white cards */
+    --card-foreground: 220 26% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 26% 14%;
+    --primary: 238 75% 59%; /* #4f46e5 - indigo 600 accent */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 14% 95%; /* #f3f4f6 - sidebar background */
+    --secondary-foreground: 220 26% 14%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 9% 46%; /* #6b7280 - muted text */
+    --accent: 238 75% 59%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%; /* #ef4444 - error red */
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%; /* #e5e7eb - subtle borders */
+    --input: 220 13% 91%;
+    --ring: 238 75% 59%;
+    --chart-1: 142 76% 36%; /* #16a34a - success green */
+    --chart-2: 0 84% 60%; /* #ef4444 - error red */
+    --chart-3: 238 75% 59%; /* #4f46e5 - indigo accent */
+    --chart-4: 43 96% 56%; /* #f59e0b - warning amber */
+    --chart-5: 168 76% 42%; /* #0d9488 - teal */
+    --radius: 0.75rem; /* rounded-xl */
+  }
+  .dark {
+    /* Enhanced Dark Mode */
+    --background: 220 26% 14%; /* #1f2937 - dark background */
+    --foreground: 220 14% 96%; /* #f3f4f6 - light text */
+    --card: 220 26% 14%;
+    --card-foreground: 220 14% 96%;
+    --popover: 220 26% 14%;
+    --popover-foreground: 220 14% 96%;
+    --primary: 238 75% 59%; /* Keep brand color */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 13% 18%; /* #2d3748 - darker secondary */
+    --secondary-foreground: 220 14% 96%;
+    --muted: 220 13% 18%;
+    --muted-foreground: 220 9% 64%; /* #9ca3af - muted text */
+    --accent: 238 75% 59%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 18%;
+    --input: 220 13% 18%;
+    --ring: 238 75% 59%;
+    --chart-1: 142 76% 36%;
+    --chart-2: 0 84% 60%;
+    --chart-3: 238 75% 59%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 168 76% 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-[#f9fafb] dark:bg-neutral-950 text-gray-900 dark:text-gray-100;
+  }
+}
