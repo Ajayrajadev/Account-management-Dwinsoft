@@ -11,16 +11,31 @@ interface AuthWrapperProps {
 
 export function AuthWrapper({ children }: AuthWrapperProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
+  const { isAuthenticated, login } = useAuthStore();
 
   useEffect(() => {
-    // Give time for Zustand to rehydrate from localStorage
-    const timer = setTimeout(() => {
+    const initAuth = async () => {
+      // Give time for Zustand to rehydrate from localStorage
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // If not authenticated and haven't tried auto-login yet, try demo login
+      if (!isAuthenticated && !autoLoginAttempted) {
+        setAutoLoginAttempted(true);
+        try {
+          console.log('Attempting auto-login with demo credentials...');
+          await login('demo@finovate.com', 'password123');
+          console.log('Auto-login successful');
+        } catch (error) {
+          console.error('Auto-login failed:', error);
+        }
+      }
+      
       setIsLoading(false);
-    }, 100);
+    };
 
-    return () => clearTimeout(timer);
-  }, []);
+    initAuth();
+  }, [isAuthenticated, autoLoginAttempted, login]);
 
   if (isLoading) {
     return (

@@ -74,11 +74,13 @@ export function InvoiceForm({ trigger, invoice, onSuccess }: InvoiceFormProps) {
       clientName: invoice?.clientName || '',
       clientPhone: invoice?.clientPhone || '',
       clientEmail: invoice?.clientEmail || '',
-      items: invoice?.items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        rate: item.rate,
-      })) || [{ name: '', quantity: 1, rate: 0 }],
+      items: (invoice?.items && Array.isArray(invoice.items)) 
+        ? invoice.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            rate: item.rate,
+          }))
+        : [{ name: '', quantity: 1, rate: 0 }],
       taxRate: invoice?.taxRate || 0,
       discount: invoice?.discount || 0,
       discountType: invoice?.discountType || 'percentage',

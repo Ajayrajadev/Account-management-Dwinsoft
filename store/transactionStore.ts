@@ -15,6 +15,7 @@ interface TransactionState {
   deleteTransaction: (id: string) => Promise<void>;
   setFilters: (filters: TransactionFilters) => void;
   applyFilters: () => void;
+  clearStore: () => void;
 }
 
 export const useTransactionStore = create<TransactionState>((set, get) => ({
@@ -29,7 +30,11 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     try {
       const response = await transactionsApi.getAll(get().filters);
       const transactions = response.data || [];
-      set({ transactions, filteredTransactions: transactions, loading: false });
+      
+      // Backend already converts types correctly, so use the response directly
+      const processedTransactions = transactions;
+      
+      set({ transactions: processedTransactions, filteredTransactions: processedTransactions, loading: false });
     } catch (error: any) {
       set({ error: error.message || 'Failed to fetch transactions', loading: false });
     }
@@ -37,12 +42,35 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   createTransaction: async (data) => {
     try {
-      const response = await transactionsApi.create(data);
+      // Ensure type is explicitly set and valid
+      if (!data.type || (data.type !== 'credit' && data.type !== 'debit')) {
+        throw new Error('Invalid transaction type');
+      }
+      
+      // Convert frontend lowercase types to backend uppercase types
+      const backendData = {
+        ...data,
+        type: data.type === 'credit' ? 'CREDIT' : 'DEBIT'
+      };
+      
+      const response = await transactionsApi.create(backendData);
       const newTransaction = response.data;
+      
+      // Ensure the response has the correct type
+      if (!newTransaction.type) {
+        newTransaction.type = data.type;
+      }
+      
       set((state) => ({
         transactions: [newTransaction, ...state.transactions],
         filteredTransactions: [newTransaction, ...state.filteredTransactions],
       }));
+      
+      // Re-apply filters to ensure correct display
+      setTimeout(() => {
+        get().applyFilters();
+      }, 100);
+      
       return Promise.resolve();
     } catch (error: any) {
       set({ error: error.message || 'Failed to create transaction' });
@@ -52,12 +80,31 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   batchCreateTransactions: async (data) => {
     try {
-      const response = await transactionsApi.batchCreate(data);
-      const newTransactions = response.data || [];
-      set((state) => ({
-        transactions: [...newTransactions, ...state.transactions],
-        filteredTransactions: [...newTransactions, ...state.filteredTransactions],
+      // Convert frontend lowercase types to backend uppercase types
+      const validTransactions = data.map((t) => ({
+        ...t,
+        type: t.type === 'credit' ? 'CREDIT' : t.type === 'debit' ? 'DEBIT' : 'DEBIT',
       }));
+      
+      const response = await transactionsApi.batchCreate(validTransactions);
+      const newTransactions = response.data || [];
+      
+      // Ensure all transactions have correct type
+      const validatedTransactions = newTransactions.map((t: any) => ({
+        ...t,
+        type: t.type || (data.find((d) => d.description === t.description)?.type || 'debit'),
+      }));
+      
+      set((state) => ({
+        transactions: [...validatedTransactions, ...state.transactions],
+        filteredTransactions: [...validatedTransactions, ...state.filteredTransactions],
+      }));
+      
+      // Re-apply filters to ensure correct display
+      setTimeout(() => {
+        get().applyFilters();
+      }, 100);
+      
       return Promise.resolve();
     } catch (error: any) {
       set({ error: error.message || 'Failed to create transactions' });
@@ -67,7 +114,15 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   updateTransaction: async (id, data) => {
     try {
-      const response = await transactionsApi.update(id, data);
+      // Convert frontend lowercase types to backend uppercase types if type is provided
+      const backendData = {
+        ...data,
+        ...(data.type && {
+          type: data.type === 'credit' ? 'CREDIT' : data.type === 'debit' ? 'DEBIT' : data.type
+        })
+      };
+      
+      const response = await transactionsApi.update(id, backendData);
       const updated = response.data;
       set((state) => ({
         transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
@@ -129,5 +184,15 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
 
     set({ filteredTransactions: filtered });
+  },
+
+  clearStore: () => {
+    set({
+      transactions: [],
+      filteredTransactions: [],
+      loading: false,
+      error: null,
+      filters: {}
+    });
   },
 }));

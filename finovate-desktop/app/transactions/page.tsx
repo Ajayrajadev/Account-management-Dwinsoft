@@ -86,7 +86,9 @@ export default function TransactionsPage() {
       if (!totals[t.category]) {
         totals[t.category] = { credit: 0, debit: 0 };
       }
-      if (t.type === 'credit') {
+      // Handle both uppercase and lowercase types for backward compatibility
+      const transactionType = (t.type as string).toLowerCase();
+      if (transactionType === 'credit') {
         totals[t.category].credit += t.amount;
       } else {
         totals[t.category].debit += t.amount;

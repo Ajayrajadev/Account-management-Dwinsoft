@@ -22,6 +22,7 @@ interface ProcessedCategoryExpense {
   category: string;
   amount: number;
   count: number;
+  percentage: number;
 }
 
 interface MonthlyTransactionData {
@@ -41,7 +42,7 @@ export const getDashboardSummary = asyncHandler(async (req: AuthenticatedRequest
     const [
       allTransactions,
       monthlyTransactions,
-      paidInvoices,
+      allInvoices,
       recentTransactions,
       recentInvoices,
       categoryExpenses,
@@ -62,11 +63,10 @@ export const getDashboardSummary = asyncHandler(async (req: AuthenticatedRequest
       select: { type: true, amount: true }
     }),
 
-    // Paid invoices for total invoice amount
+    // All invoices for total invoice amount (not just paid ones)
     prisma.invoice.findMany({
       where: {
-        userId,
-        status: 'PAID'
+        userId
       },
       select: { totalAmount: true }
     }),
@@ -136,7 +136,7 @@ export const getDashboardSummary = asyncHandler(async (req: AuthenticatedRequest
     return sum + (t.type === 'CREDIT' ? t.amount : -t.amount);
   }, 0);
 
-  const totalInvoiceAmount = paidInvoices.reduce((sum: number, inv: any) => sum + inv.totalAmount, 0);
+  const totalInvoiceAmount = allInvoices.reduce((sum: number, inv: any) => sum + inv.totalAmount, 0);
 
   const monthlyIncome = monthlyTransactions
     .filter((t: any) => t.type === 'CREDIT')
@@ -149,11 +149,17 @@ export const getDashboardSummary = asyncHandler(async (req: AuthenticatedRequest
   const monthlyProfit = monthlyIncome - monthlyExpenses;
 
     // Process category expenses with proper typing
-    const processedCategoryExpenses: ProcessedCategoryExpense[] = (categoryExpenses as CategoryExpenseResult[]).map(cat => ({
-      category: cat.category || 'Uncategorized',
-      amount: cat._sum.amount ?? 0,
-      count: cat._count.category ?? 0
-    }));
+    const totalCategoryExpenses = (categoryExpenses as CategoryExpenseResult[]).reduce((sum, cat) => sum + (cat._sum.amount ?? 0), 0);
+    const processedCategoryExpenses: ProcessedCategoryExpense[] = (categoryExpenses as CategoryExpenseResult[]).map(cat => {
+      const amount = cat._sum.amount ?? 0;
+      const percentage = totalCategoryExpenses > 0 ? Math.round((amount / totalCategoryExpenses) * 100) : 0;
+      return {
+        category: cat.category || 'Uncategorized',
+        amount,
+        count: cat._count.category ?? 0,
+        percentage
+      };
+    });
 
     // Process yearly income/expense data for charts with proper typing
     const monthlyData = new Map<string, MonthlyTransactionData>();
@@ -285,11 +291,17 @@ export const getCategoryExpenses = asyncHandler(async (req: AuthenticatedRequest
       orderBy: { _sum: { amount: 'desc' } }
     });
 
-    const processedData: ProcessedCategoryExpense[] = (categoryData as CategoryExpenseResult[]).map(cat => ({
-      category: cat.category || 'Uncategorized',
-      amount: cat._sum.amount ?? 0,
-      count: cat._count.category ?? 0
-    }));
+    const totalExpenses = (categoryData as CategoryExpenseResult[]).reduce((sum, cat) => sum + (cat._sum.amount ?? 0), 0);
+    const processedData: ProcessedCategoryExpense[] = (categoryData as CategoryExpenseResult[]).map(cat => {
+      const amount = cat._sum.amount ?? 0;
+      const percentage = totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
+      return {
+        category: cat.category || 'Uncategorized',
+        amount,
+        count: cat._count.category ?? 0,
+        percentage
+      };
+    });
 
     const response: ApiResponse<ProcessedCategoryExpense[]> = {
       success: true,

@@ -11,6 +11,16 @@ import {
   ApiResponse
 } from '@/types';
 
+// Helper function to convert backend types to frontend format
+const convertTransactionForFrontend = (transaction: any) => {
+  if (!transaction) return transaction;
+  
+  return {
+    ...transaction,
+    type: transaction.type === 'CREDIT' ? 'credit' : transaction.type === 'DEBIT' ? 'debit' : transaction.type
+  };
+};
+
 export const getTransactions = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const query = TransactionQuerySchema.parse(req.query);
@@ -19,7 +29,8 @@ export const getTransactions = asyncHandler(async (req: AuthenticatedRequest, re
 
   // Apply filters
   if (query.type) {
-    where.type = query.type;
+    // Convert frontend lowercase type to backend uppercase type for database query
+    where.type = query.type === 'credit' ? 'CREDIT' : query.type === 'debit' ? 'DEBIT' : query.type;
   }
 
   if (query.category) {
@@ -59,10 +70,13 @@ export const getTransactions = asyncHandler(async (req: AuthenticatedRequest, re
 
   const totalPages = Math.ceil(total / query.limit);
 
+  // Convert types to frontend format
+  const convertedTransactions = transactions.map(convertTransactionForFrontend);
+
   const response: ApiResponse = {
     success: true,
     message: 'Transactions retrieved successfully',
-    data: transactions,
+    data: convertedTransactions,
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -86,10 +100,13 @@ export const getTransaction = asyncHandler(async (req: AuthenticatedRequest, res
     throw new AppError('Transaction not found', 404);
   }
 
+  // Convert type to frontend format
+  const convertedTransaction = convertTransactionForFrontend(transaction);
+
   const response: ApiResponse = {
     success: true,
     message: 'Transaction retrieved successfully',
-    data: transaction
+    data: convertedTransaction
   };
 
   res.json(response);
@@ -110,10 +127,13 @@ export const createTransaction = asyncHandler(async (req: AuthenticatedRequest, 
 
   logger.info(`Transaction created: ${transaction.id} by user: ${userId}`);
 
+  // Convert type to frontend format
+  const convertedTransaction = convertTransactionForFrontend(transaction);
+
   const response: ApiResponse = {
     success: true,
     message: 'Transaction created successfully',
-    data: transaction
+    data: convertedTransaction
   };
 
   res.status(201).json(response);
@@ -138,10 +158,13 @@ export const createBatchTransactions = asyncHandler(async (req: AuthenticatedReq
 
   logger.info(`Batch transactions created: ${createdTransactions.length} by user: ${userId}`);
 
+  // Convert types to frontend format
+  const convertedTransactions = createdTransactions.map(convertTransactionForFrontend);
+
   const response: ApiResponse = {
     success: true,
     message: `${createdTransactions.length} transactions created successfully`,
-    data: createdTransactions
+    data: convertedTransactions
   };
 
   res.status(201).json(response);
@@ -176,10 +199,13 @@ export const updateTransaction = asyncHandler(async (req: AuthenticatedRequest, 
 
   logger.info(`Transaction updated: ${transaction.id} by user: ${userId}`);
 
+  // Convert type to frontend format
+  const convertedTransaction = convertTransactionForFrontend(transaction);
+
   const response: ApiResponse = {
     success: true,
     message: 'Transaction updated successfully',
-    data: transaction
+    data: convertedTransaction
   };
 
   res.json(response);

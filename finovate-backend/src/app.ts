@@ -35,7 +35,9 @@ app.use(helmet({
 
 // CORS configuration
 const corsOptions = {
-  origin: env.CORS_ORIGIN.split(',').map(origin => origin.trim()),
+  origin: env.CORS_ORIGIN ? 
+    env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : 
+    ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'], // Include mobile app origin
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

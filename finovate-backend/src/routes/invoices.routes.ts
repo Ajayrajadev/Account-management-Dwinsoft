@@ -185,6 +185,56 @@ router.patch('/:id/status', updateInvoiceStatus);
 
 /**
  * @swagger
+ * /api/invoices/{id}/paid:
+ *   patch:
+ *     summary: Mark invoice as paid
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Invoice marked as paid successfully
+ *       404:
+ *         description: Invoice not found
+ */
+router.patch('/:id/paid', (req, res, next) => {
+  req.body = { status: 'PAID', paidDate: new Date().toISOString() };
+  updateInvoiceStatus(req, res, next);
+});
+
+/**
+ * @swagger
+ * /api/invoices/{id}/unpaid:
+ *   patch:
+ *     summary: Mark invoice as unpaid
+ *     tags: [Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Invoice marked as unpaid successfully
+ *       404:
+ *         description: Invoice not found
+ */
+router.patch('/:id/unpaid', (req, res, next) => {
+  req.body = { status: 'PENDING' };
+  updateInvoiceStatus(req, res, next);
+});
+
+/**
+ * @swagger
  * /api/invoices/{id}/duplicate:
  *   post:
  *     summary: Duplicate an invoice

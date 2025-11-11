@@ -33,7 +33,7 @@ export const TransactionUpdateSchema = TransactionSchema.partial();
 export const TransactionQuerySchema = z.object({
   page: z.string().transform(Number).optional().default('1'),
   limit: z.string().transform(Number).optional().default('10'),
-  type: z.enum(['CREDIT', 'DEBIT']).optional(),
+  type: z.enum(['CREDIT', 'DEBIT', 'credit', 'debit']).optional(),
   category: z.string().optional(),
   dateFrom: z.string().datetime().optional(),
   dateTo: z.string().datetime().optional(),
@@ -46,21 +46,27 @@ export const InvoiceItemSchema = z.object({
   description: z.string().optional(),
   quantity: z.number().positive('Quantity must be positive'),
   rate: z.number().positive('Rate must be positive'),
-  amount: z.number().positive('Amount must be positive'),
+  amount: z.number().positive('Amount must be positive').optional(),
 });
 
 export const InvoiceSchema = z.object({
-  invoiceNumber: z.string().min(1, 'Invoice number is required'),
+  invoiceNumber: z.string().optional(), // Auto-generated if not provided
   clientName: z.string().min(1, 'Client name is required'),
-  clientEmail: z.string().email().optional(),
+  clientEmail: z.string().email().optional().or(z.literal('')),
   clientPhone: z.string().optional(),
   clientAddress: z.string().optional(),
   items: z.array(InvoiceItemSchema).min(1, 'At least one item is required'),
-  subtotal: z.number().positive('Subtotal must be positive'),
-  taxAmount: z.number().min(0, 'Tax amount cannot be negative').default(0),
-  totalAmount: z.number().positive('Total amount must be positive'),
-  issueDate: z.string().datetime().optional(),
-  dueDate: z.string().datetime().optional(),
+  // Accept both frontend format (taxRate, discount) and backend format (subtotal, taxAmount, totalAmount)
+  subtotal: z.number().min(0).optional(),
+  taxRate: z.number().min(0).max(100).optional(),
+  taxAmount: z.number().min(0).optional(),
+  discount: z.number().min(0).optional(),
+  discountType: z.enum(['percentage', 'fixed']).optional(),
+  totalAmount: z.number().positive().optional(),
+  // Accept both date formats
+  date: z.string().optional(),
+  issueDate: z.string().optional(),
+  dueDate: z.string().optional(),
   notes: z.string().optional(),
 });
 

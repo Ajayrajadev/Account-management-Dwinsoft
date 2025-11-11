@@ -11,6 +11,24 @@ import {
   ApiResponse
 } from '@/types';
 
+// Helper function to parse invoice items from JSON string
+const parseInvoiceItems = (invoice: any) => {
+  if (!invoice) return invoice;
+  
+  try {
+    return {
+      ...invoice,
+      items: typeof invoice.items === 'string' ? JSON.parse(invoice.items) : invoice.items
+    };
+  } catch (error) {
+    console.error('Error parsing invoice items:', error);
+    return {
+      ...invoice,
+      items: []
+    };
+  }
+};
+
 export const getInvoices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const query = InvoiceQuerySchema.parse(req.query);
@@ -60,10 +78,13 @@ export const getInvoices = asyncHandler(async (req: AuthenticatedRequest, res: R
 
   const totalPages = Math.ceil(total / query.limit);
 
+  // Parse items field for all invoices
+  const parsedInvoices = invoices.map(parseInvoiceItems);
+
   const response: ApiResponse = {
     success: true,
     message: 'Invoices retrieved successfully',
-    data: invoices,
+    data: parsedInvoices,
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -87,10 +108,13 @@ export const getInvoice = asyncHandler(async (req: AuthenticatedRequest, res: Re
     throw new AppError('Invoice not found', 404);
   }
 
+  // Parse items field
+  const parsedInvoice = parseInvoiceItems(invoice);
+
   const response: ApiResponse = {
     success: true,
     message: 'Invoice retrieved successfully',
-    data: invoice
+    data: parsedInvoice
   };
 
   res.json(response);
@@ -113,22 +137,56 @@ export const createInvoice = asyncHandler(async (req: AuthenticatedRequest, res:
     invoiceNumber = `INV-${String(parseInt(lastNumber) + 1).padStart(4, '0')}`;
   }
 
+  // Calculate totals from frontend data
+  const items = data.items.map(item => ({
+    ...item,
+    amount: item.amount || (item.quantity * item.rate)
+  }));
+
+  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+  
+  // Handle discount
+  const discount = data.discount || 0;
+  const discountType = data.discountType || 'percentage';
+  const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
+  const afterDiscount = subtotal - discountAmount;
+  
+  // Handle tax
+  const taxRate = data.taxRate || 0;
+  const taxAmount = (afterDiscount * taxRate) / 100;
+  const totalAmount = afterDiscount + taxAmount;
+
+  // Use date field if issueDate not provided
+  const issueDate = data.issueDate || data.date;
+
   const invoice = await prisma.invoice.create({
     data: {
-      ...data,
       invoiceNumber,
-      userId,
-      issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
-      dueDate: data.dueDate ? new Date(data.dueDate) : null
+      clientName: data.clientName,
+      clientEmail: data.clientEmail || null,
+      clientPhone: data.clientPhone || null,
+      clientAddress: data.clientAddress || null,
+      items: JSON.stringify(items),
+      subtotal,
+      taxAmount,
+      totalAmount,
+      status: 'PENDING',
+      issueDate: issueDate ? new Date(issueDate) : new Date(),
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      notes: data.notes || null,
+      userId
     }
   });
 
   logger.info(`Invoice created: ${invoice.id} by user: ${userId}`);
 
+  // Parse items field before returning
+  const parsedInvoice = parseInvoiceItems(invoice);
+
   const response: ApiResponse = {
     success: true,
     message: 'Invoice created successfully',
-    data: invoice
+    data: parsedInvoice
   };
 
   res.status(201).json(response);
@@ -149,6 +207,9 @@ export const updateInvoice = asyncHandler(async (req: AuthenticatedRequest, res:
   }
 
   const updateData: any = { ...data };
+  if (data.items) {
+    updateData.items = JSON.stringify(data.items);
+  }
   if (data.issueDate) {
     updateData.issueDate = new Date(data.issueDate);
   }
@@ -163,10 +224,13 @@ export const updateInvoice = asyncHandler(async (req: AuthenticatedRequest, res:
 
   logger.info(`Invoice updated: ${invoice.id} by user: ${userId}`);
 
+  // Parse items field before returning
+  const parsedInvoice = parseInvoiceItems(invoice);
+
   const response: ApiResponse = {
     success: true,
     message: 'Invoice updated successfully',
-    data: invoice
+    data: parsedInvoice
   };
 
   res.json(response);
@@ -196,17 +260,54 @@ export const updateInvoiceStatus = asyncHandler(async (req: AuthenticatedRequest
     updateData.paidDate = null;
   }
 
-  const invoice = await prisma.invoice.update({
-    where: { id },
-    data: updateData
+  // Use transaction to ensure atomicity
+  const result = await prisma.$transaction(async (tx) => {
+    // Update invoice status
+    const invoice = await tx.invoice.update({
+      where: { id },
+      data: updateData
+    });
+
+    // If marking as paid and wasn't paid before, create a credit transaction
+    if (status === 'PAID' && existingInvoice.status !== 'PAID') {
+      await tx.transaction.create({
+        data: {
+          type: 'CREDIT',
+          description: `Payment received for invoice ${existingInvoice.invoiceNumber}`,
+          category: 'Invoice Payment',
+          amount: existingInvoice.totalAmount,
+          date: updateData.paidDate || new Date(),
+          userId
+        }
+      });
+      logger.info(`Created credit transaction for invoice payment: ${invoice.id}, amount: ${existingInvoice.totalAmount}`);
+    }
+
+    // If marking as unpaid and was paid before, remove the corresponding transaction
+    if (status !== 'PAID' && existingInvoice.status === 'PAID') {
+      await tx.transaction.deleteMany({
+        where: {
+          userId,
+          type: 'CREDIT',
+          description: `Payment received for invoice ${existingInvoice.invoiceNumber}`,
+          amount: existingInvoice.totalAmount
+        }
+      });
+      logger.info(`Removed credit transaction for unpaid invoice: ${invoice.id}`);
+    }
+
+    return invoice;
   });
 
-  logger.info(`Invoice status updated: ${invoice.id} to ${status} by user: ${userId}`);
+  logger.info(`Invoice status updated: ${result.id} to ${status} by user: ${userId}`);
+
+  // Parse items field before returning
+  const parsedInvoice = parseInvoiceItems(result);
 
   const response: ApiResponse = {
     success: true,
     message: `Invoice marked as ${status.toLowerCase()}`,
-    data: invoice
+    data: parsedInvoice
   };
 
   res.json(response);
@@ -278,10 +379,13 @@ export const duplicateInvoice = asyncHandler(async (req: AuthenticatedRequest, r
 
   logger.info(`Invoice duplicated: ${id} -> ${duplicatedInvoice.id} by user: ${userId}`);
 
+  // Parse items field before returning
+  const parsedInvoice = parseInvoiceItems(duplicatedInvoice);
+
   const response: ApiResponse = {
     success: true,
     message: 'Invoice duplicated successfully',
-    data: duplicatedInvoice
+    data: parsedInvoice
   };
 
   res.status(201).json(response);

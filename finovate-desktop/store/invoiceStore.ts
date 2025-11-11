@@ -41,13 +41,16 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   createInvoice: async (data) => {
     try {
       const response = await invoicesApi.create(data);
-      const newInvoice = response.data;
+      // Handle the API response structure: { success: true, data: invoice }
+      const newInvoice = response.data?.data || response.data;
       set((state) => ({
         invoices: [newInvoice, ...state.invoices],
         filteredInvoices: [newInvoice, ...state.filteredInvoices],
       }));
       return Promise.resolve();
     } catch (error: any) {
+      console.error('Error creating invoice:', error);
+      console.error('Error response:', error.response?.data);
       set({ error: error.message || 'Failed to create invoice' });
       return Promise.reject(error);
     }
@@ -56,13 +59,15 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   updateInvoice: async (id, data) => {
     try {
       const response = await invoicesApi.update(id, data);
-      const updated = response.data;
+      // Handle the API response structure: { success: true, data: invoice }
+      const updated = response.data?.data || response.data;
       set((state) => ({
         invoices: state.invoices.map((inv) => (inv.id === id ? updated : inv)),
         filteredInvoices: state.filteredInvoices.map((inv) => (inv.id === id ? updated : inv)),
       }));
       return Promise.resolve();
     } catch (error: any) {
+      console.error('Error updating invoice:', error);
       set({ error: error.message || 'Failed to update invoice' });
       return Promise.reject(error);
     }
@@ -85,13 +90,15 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   markPaid: async (id) => {
     try {
       const response = await invoicesApi.markPaid(id);
-      const updated = response.data;
+      // Handle the API response structure: { success: true, data: invoice }
+      const updated = response.data?.data || response.data;
       set((state) => ({
         invoices: state.invoices.map((inv) => (inv.id === id ? updated : inv)),
         filteredInvoices: state.filteredInvoices.map((inv) => (inv.id === id ? updated : inv)),
       }));
       return Promise.resolve();
     } catch (error: any) {
+      console.error('Error marking invoice as paid:', error);
       set({ error: error.message || 'Failed to mark invoice as paid' });
       return Promise.reject(error);
     }
@@ -100,13 +107,15 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   markUnpaid: async (id) => {
     try {
       const response = await invoicesApi.markUnpaid(id);
-      const updated = response.data;
+      // Handle the API response structure: { success: true, data: invoice }
+      const updated = response.data?.data || response.data;
       set((state) => ({
         invoices: state.invoices.map((inv) => (inv.id === id ? updated : inv)),
         filteredInvoices: state.filteredInvoices.map((inv) => (inv.id === id ? updated : inv)),
       }));
       return Promise.resolve();
     } catch (error: any) {
+      console.error('Error marking invoice as unpaid:', error);
       set({ error: error.message || 'Failed to mark invoice as unpaid' });
       return Promise.reject(error);
     }

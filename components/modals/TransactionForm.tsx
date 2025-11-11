@@ -88,17 +88,26 @@ export function TransactionForm({
 
   const onSubmit = async (data: z.infer<typeof transactionSchema>) => {
     try {
+      // Ensure type is explicitly set
+      const transactionData = { ...data, type };
+      
       if (transaction) {
-        await updateTransaction(transaction.id, { ...data, type });
+        await updateTransaction(transaction.id, transactionData);
         toast.success('Transaction updated successfully');
       } else {
-        await createTransaction({ ...data, type });
+        await createTransaction(transactionData);
         toast.success('Transaction created successfully');
       }
+      
+      // Refresh dashboard and wait a bit for state to update
       await refreshDashboard();
-      setOpen(false);
-      form.reset();
-      onSuccess?.();
+      
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        setOpen(false);
+        form.reset();
+        onSuccess?.();
+      }, 200);
     } catch (error) {
       toast.error('Failed to save transaction');
     }

@@ -30,7 +30,14 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       const response = await transactionsApi.getAll(get().filters);
       // Handle the API response structure: { success: true, data: [...] }
       const transactions = response.data?.data || [];
-      set({ transactions, filteredTransactions: transactions, loading: false });
+      
+      // Convert lowercase types from backend to uppercase for desktop app consistency
+      const processedTransactions = transactions.map((t: any) => ({
+        ...t,
+        type: t.type === 'credit' ? 'CREDIT' : t.type === 'debit' ? 'DEBIT' : t.type
+      }));
+      
+      set({ transactions: processedTransactions, filteredTransactions: processedTransactions, loading: false });
     } catch (error: any) {
       console.error('Error fetching transactions:', error);
       set({ error: error.message || 'Failed to fetch transactions', loading: false });
@@ -43,9 +50,16 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       const response = await transactionsApi.create(data);
       console.log('Transaction creation response:', response);
       const newTransaction = response.data?.data || response.data;
+      
+      // Convert type to uppercase for consistency
+      const processedTransaction = {
+        ...newTransaction,
+        type: newTransaction.type === 'credit' ? 'CREDIT' : newTransaction.type === 'debit' ? 'DEBIT' : newTransaction.type
+      };
+      
       set((state) => ({
-        transactions: [newTransaction, ...state.transactions],
-        filteredTransactions: [newTransaction, ...state.filteredTransactions],
+        transactions: [processedTransaction, ...state.transactions],
+        filteredTransactions: [processedTransaction, ...state.filteredTransactions],
       }));
       // Refresh the transactions list to ensure UI is updated
       get().fetchTransactions();
@@ -62,9 +76,16 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     try {
       const response = await transactionsApi.batchCreate(data);
       const newTransactions = response.data?.data || [];
+      
+      // Convert types to uppercase for consistency
+      const processedTransactions = newTransactions.map((t: any) => ({
+        ...t,
+        type: t.type === 'credit' ? 'CREDIT' : t.type === 'debit' ? 'DEBIT' : t.type
+      }));
+      
       set((state) => ({
-        transactions: [...newTransactions, ...state.transactions],
-        filteredTransactions: [...newTransactions, ...state.filteredTransactions],
+        transactions: [...processedTransactions, ...state.transactions],
+        filteredTransactions: [...processedTransactions, ...state.filteredTransactions],
       }));
       return Promise.resolve();
     } catch (error: any) {
@@ -78,9 +99,16 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     try {
       const response = await transactionsApi.update(id, data);
       const updated = response.data?.data || response.data;
+      
+      // Convert type to uppercase for consistency
+      const processedTransaction = {
+        ...updated,
+        type: updated.type === 'credit' ? 'CREDIT' : updated.type === 'debit' ? 'DEBIT' : updated.type
+      };
+      
       set((state) => ({
-        transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
-        filteredTransactions: state.filteredTransactions.map((t) => (t.id === id ? updated : t)),
+        transactions: state.transactions.map((t) => (t.id === id ? processedTransaction : t)),
+        filteredTransactions: state.filteredTransactions.map((t) => (t.id === id ? processedTransaction : t)),
       }));
       return Promise.resolve();
     } catch (error: any) {

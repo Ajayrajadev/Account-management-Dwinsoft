@@ -68,17 +68,17 @@ export function InvoiceForm({ trigger, invoice, onSuccess }: InvoiceFormProps) {
   const { createInvoice, updateInvoice } = useInvoiceStore();
   const { refresh: refreshDashboard } = useDashboardStore();
 
-  const form = useForm({
-    resolver: zodResolver(invoiceSchema),
+  const form = useForm<z.infer<typeof invoiceSchema>>({
+    resolver: zodResolver(invoiceSchema as any),
     defaultValues: {
       clientName: invoice?.clientName || '',
       clientPhone: invoice?.clientPhone || '',
       clientEmail: invoice?.clientEmail || '',
-      items: invoice?.items.map((item) => ({
+      items: (invoice?.items && Array.isArray(invoice.items)) ? invoice.items.map((item) => ({
         name: item.name,
         quantity: item.quantity,
         rate: item.rate,
-      })) || [{ name: '', quantity: 1, rate: 0 }],
+      })) : [{ name: '', quantity: 1, rate: 0 }],
       taxRate: invoice?.taxRate || 0,
       discount: invoice?.discount || 0,
       discountType: invoice?.discountType || 'percentage',
