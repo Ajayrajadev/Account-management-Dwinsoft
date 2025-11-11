@@ -4,7 +4,8 @@ import {
   getIncomeExpenseData,
   getCategoryExpenses,
   updateGoal,
-  getGoal
+  getGoal,
+  getYearlyProfitData
 } from '@/controllers/dashboard.controller';
 import { authenticateToken } from '@/middlewares/auth.middleware';
 
@@ -136,5 +137,26 @@ router.get('/goal', getGoal);
  *         description: Monthly goal updated successfully
  */
 router.put('/goal', updateGoal);
+
+/**
+ * @swagger
+ * /api/dashboard/yearly-profit:
+ *   get:
+ *     summary: Get yearly profit data with monthly breakdown
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: months
+ *         schema:
+ *           type: string
+ *           default: "12"
+ *         description: Number of months to include (1-24)
+ *     responses:
+ *       200:
+ *         description: Yearly profit data retrieved successfully
+ */
+router.get('/yearly-profit', getYearlyProfitData);
 
 export default router;

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useInvoiceStore } from '@/store/invoiceStore';
+import { useDashboardStore } from '@/store/dashboardStore';
 import { PageShell } from '@/components/PageShell';
+import { formatRupees } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,6 +25,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvoiceForm } from '@/components/modals/InvoiceForm';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+import { MarkPaidDialog } from '@/components/modals/MarkPaidDialog';
 import { Plus, Edit, Trash2, Search, Copy, Download, Mail, Check, X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -50,6 +53,7 @@ export default function InvoicesPage() {
     duplicateInvoice,
     setFilters,
   } = useInvoiceStore();
+  const { refresh: refreshDashboard } = useDashboardStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -60,6 +64,14 @@ export default function InvoicesPage() {
     newStatus: 'paid' | 'pending';
   } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
+  const [invoiceToMarkPaid, setInvoiceToMarkPaid] = useState<{
+    id: string;
+    invoiceNumber: string;
+    clientName: string;
+    totalAmount: number | string;
+    bankAccountId?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -76,9 +88,11 @@ export default function InvoicesPage() {
     if (!invoiceToDelete) return;
     try {
       await deleteInvoice(invoiceToDelete);
-      toast.success('Invoice deleted successfully');
+      toast.success('Invoice and related transactions deleted successfully');
       setDeleteDialogOpen(false);
       setInvoiceToDelete(null);
+      // Refresh dashboard data since transactions might have been deleted
+      await refreshDashboard();
     } catch (error) {
       toast.error('Failed to delete invoice');
     }
@@ -121,9 +135,24 @@ export default function InvoicesPage() {
   };
 
   const invoiceStats = {
-    total: filteredInvoices.reduce((sum, inv) => sum + ((inv as any).totalAmount || 0), 0),
-    paid: filteredInvoices.filter((inv) => (inv as any).status === 'PAID').reduce((sum, inv) => sum + ((inv as any).totalAmount || 0), 0),
-    pending: filteredInvoices.filter((inv) => (inv as any).status === 'PENDING').reduce((sum, inv) => sum + ((inv as any).totalAmount || 0), 0),
+    total: filteredInvoices.reduce((sum, inv) => {
+      const amount = typeof (inv as any).totalAmount === 'string' 
+        ? parseFloat((inv as any).totalAmount) 
+        : ((inv as any).totalAmount || 0);
+      return sum + amount;
+    }, 0),
+    paid: filteredInvoices.filter((inv) => (inv as any).status === 'PAID').reduce((sum, inv) => {
+      const amount = typeof (inv as any).totalAmount === 'string' 
+        ? parseFloat((inv as any).totalAmount) 
+        : ((inv as any).totalAmount || 0);
+      return sum + amount;
+    }, 0),
+    pending: filteredInvoices.filter((inv) => (inv as any).status === 'PENDING').reduce((sum, inv) => {
+      const amount = typeof (inv as any).totalAmount === 'string' 
+        ? parseFloat((inv as any).totalAmount) 
+        : ((inv as any).totalAmount || 0);
+      return sum + amount;
+    }, 0),
   };
 
   const chartData = [
@@ -134,13 +163,13 @@ export default function InvoicesPage() {
   return (
     <PageShell
       title="Invoices"
-      description="Create and manage your invoices"
+      description="Add and manage your invoices"
       actions={
         <InvoiceForm
           trigger={
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create Invoice
+              Add Invoice
             </Button>
           }
         />
@@ -154,7 +183,7 @@ export default function InvoicesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-neutral-900">
-              ${invoiceStats.total.toLocaleString()}
+              {formatRupees(invoiceStats.total)}
             </div>
           </CardContent>
         </Card>
@@ -164,7 +193,7 @@ export default function InvoicesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              ${invoiceStats.paid.toLocaleString()}
+              {formatRupees(invoiceStats.paid)}
             </div>
           </CardContent>
         </Card>
@@ -174,7 +203,7 @@ export default function InvoicesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-              ${invoiceStats.pending.toLocaleString()}
+              {formatRupees(invoiceStats.pending)}
             </div>
           </CardContent>
         </Card>
@@ -204,12 +233,7 @@ export default function InvoicesPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) =>
-                    new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency: 'USD',
-                    }).format(value)
-                  }
+                  formatter={(value: number) => formatRupees(value)}
                 />
                 <Legend />
               </PieChart>
@@ -349,7 +373,11 @@ export default function InvoicesPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-semibold">
-                        ${(invoice as any).totalAmount?.toLocaleString() || '0'}
+                        {formatRupees(
+                          typeof (invoice as any).totalAmount === 'string' 
+                            ? parseFloat((invoice as any).totalAmount) 
+                            : ((invoice as any).totalAmount || 0)
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -386,27 +414,36 @@ export default function InvoicesPage() {
                               <Mail className="mr-2 h-4 w-4" />
                               Send Email
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setInvoiceToChangeStatus({
-                                  id: invoice.id,
-                                  newStatus: invoice.status === 'paid' ? 'pending' : 'paid',
-                                });
-                                setStatusChangeDialogOpen(true);
-                              }}
-                            >
-                              {invoice.status === 'paid' ? (
-                                <>
-                                  <X className="mr-2 h-4 w-4" />
-                                  Mark Unpaid
-                                </>
-                              ) : (
-                                <>
-                                  <Check className="mr-2 h-4 w-4" />
-                                  Mark Paid
-                                </>
-                              )}
-                            </DropdownMenuItem>
+                            {invoice.status === 'paid' ? (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInvoiceToChangeStatus({
+                                    id: invoice.id,
+                                    newStatus: 'pending',
+                                  });
+                                  setStatusChangeDialogOpen(true);
+                                }}
+                              >
+                                <X className="mr-2 h-4 w-4" />
+                                Mark Unpaid
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInvoiceToMarkPaid({
+                                    id: invoice.id,
+                                    invoiceNumber: invoice.invoiceNumber,
+                                    clientName: invoice.clientName,
+                                    totalAmount: (invoice as any).totalAmount,
+                                    bankAccountId: (invoice as any).bankAccountId,
+                                  });
+                                  setMarkPaidDialogOpen(true);
+                                }}
+                              >
+                                <Check className="mr-2 h-4 w-4" />
+                                Mark Paid
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() => {
                                 setInvoiceToDelete(invoice.id);
@@ -454,6 +491,16 @@ export default function InvoicesPage() {
         }
         onConfirm={handleStatusChange}
         confirmText="Confirm"
+      />
+
+      <MarkPaidDialog
+        open={markPaidDialogOpen}
+        onOpenChange={setMarkPaidDialogOpen}
+        invoice={invoiceToMarkPaid}
+        onSuccess={() => {
+          fetchInvoices();
+          setInvoiceToMarkPaid(null);
+        }}
       />
     </PageShell>
   );

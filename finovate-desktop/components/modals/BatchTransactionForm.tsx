@@ -41,7 +41,7 @@ const transactionItemSchema = z.object({
   type: z.enum(['credit', 'debit']),
   description: z.string().min(1, 'Description is required'),
   category: z.string().min(1, 'Category is required'),
-  amount: z.number().positive('Amount must be positive'),
+  amount: z.union([z.string(), z.number()]).transform(val => val === '' ? 0 : Number(val)).refine(val => val > 0, 'Amount must be positive'),
   date: z.string().min(1, 'Date is required'),
   recurring: z.boolean().optional(),
 });
@@ -82,7 +82,7 @@ export function BatchTransactionForm({ trigger, onSuccess }: BatchTransactionFor
           type: 'credit' as TransactionType,
           description: '',
           category: '',
-          amount: 0,
+          amount: '',
           date: new Date().toISOString().split('T')[0],
           recurring: false,
         },
@@ -95,10 +95,10 @@ export function BatchTransactionForm({ trigger, onSuccess }: BatchTransactionFor
     name: 'transactions',
   });
 
-  const onSubmit = async (data: z.infer<typeof batchSchema>) => {
+  const onSubmit = async (data: any) => {
     try {
       // Convert dates to ISO datetime strings and fix type format
-      const transactionsData = data.transactions.map(transaction => ({
+      const transactionsData = data.transactions.map((transaction: any) => ({
         ...transaction,
         type: transaction.type === 'credit' ? 'CREDIT' : 'DEBIT',
         date: new Date(transaction.date).toISOString()
@@ -217,7 +217,7 @@ export function BatchTransactionForm({ trigger, onSuccess }: BatchTransactionFor
                               step="0.01"
                               placeholder="0.00"
                               {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                              onChange={(e) => field.onChange(e.target.value)}
                             />
                           </FormControl>
                           <FormMessage />
@@ -250,7 +250,7 @@ export function BatchTransactionForm({ trigger, onSuccess }: BatchTransactionFor
                   type: 'credit',
                   description: '',
                   category: '',
-                  amount: 0,
+                  amount: '',
                   date: new Date().toISOString().split('T')[0],
                   recurring: false,
                 })

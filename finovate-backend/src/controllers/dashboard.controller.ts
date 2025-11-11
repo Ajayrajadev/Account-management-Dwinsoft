@@ -46,7 +46,8 @@ export const getDashboardSummary = asyncHandler(async (req: AuthenticatedRequest
       recentTransactions,
       recentInvoices,
       categoryExpenses,
-      yearlyData
+      yearlyData,
+      goalSetting
     ] = await Promise.all([
     // Total balance calculation
     prisma.transaction.findMany({
@@ -117,36 +118,54 @@ export const getDashboardSummary = asyncHandler(async (req: AuthenticatedRequest
       orderBy: { _sum: { amount: 'desc' } }
     }),
 
-      // Yearly income/expense data using SQLite-compatible query
+      // Yearly income/expense data using PostgreSQL query
       prisma.$queryRaw<MonthlyTransactionResult[]>`
         SELECT 
-          strftime('%Y-%m', date) as month,
+          TO_CHAR(date, 'YYYY-MM') as month,
           type,
           CAST(COALESCE(SUM(amount), 0) AS TEXT) as total
         FROM transactions
-        WHERE userId = ${userId} 
+        WHERE "userId" = ${userId} 
           AND date >= ${startOfYear}
-        GROUP BY strftime('%Y-%m', date), type
+        GROUP BY TO_CHAR(date, 'YYYY-MM'), type
         ORDER BY month
-      `
+      `,
+
+      // Monthly goal setting
+      prisma.settings.findUnique({
+        where: { key: `monthly_goal_${userId}` }
+      })
   ]);
 
-  // Calculate totals
-  const totalBalance = allTransactions.reduce((sum: number, t: any) => {
-    return sum + (t.type === 'CREDIT' ? t.amount : -t.amount);
+  // Calculate totals with proper Decimal type handling
+  const totalBalance = allTransactions.reduce((sum, t) => {
+    const amount = typeof t.amount === 'object' ? parseFloat(t.amount.toString()) : t.amount;
+    return sum + (t.type === 'CREDIT' ? amount : -amount);
   }, 0);
 
-  const totalInvoiceAmount = allInvoices.reduce((sum: number, inv: any) => sum + inv.totalAmount, 0);
+  const totalInvoiceAmount = allInvoices.reduce((sum, invoice) => {
+    const amount = typeof invoice.totalAmount === 'object' ? parseFloat(invoice.totalAmount.toString()) : invoice.totalAmount;
+    return sum + amount;
+  }, 0);
 
   const monthlyIncome = monthlyTransactions
-    .filter((t: any) => t.type === 'CREDIT')
-    .reduce((sum: number, t: any) => sum + t.amount, 0);
+    .filter(t => t.type === 'CREDIT')
+    .reduce((sum, t) => {
+      const amount = typeof t.amount === 'object' ? parseFloat(t.amount.toString()) : t.amount;
+      return sum + amount;
+    }, 0);
 
   const monthlyExpenses = monthlyTransactions
-    .filter((t: any) => t.type === 'DEBIT')
-    .reduce((sum: number, t: any) => sum + t.amount, 0);
+    .filter(t => t.type === 'DEBIT')
+    .reduce((sum, t) => {
+      const amount = typeof t.amount === 'object' ? parseFloat(t.amount.toString()) : t.amount;
+      return sum + amount;
+    }, 0);
 
   const monthlyProfit = monthlyIncome - monthlyExpenses;
+
+  // Get monthly goal from settings
+  const monthlyGoal = goalSetting ? parseFloat(goalSetting.value) || 0 : 0;
 
     // Process category expenses with proper typing
     const totalCategoryExpenses = (categoryExpenses as CategoryExpenseResult[]).reduce((sum, cat) => sum + (cat._sum.amount ?? 0), 0);
@@ -191,6 +210,7 @@ export const getDashboardSummary = asyncHandler(async (req: AuthenticatedRequest
       monthlyIncome,
       monthlyExpenses,
       monthlyProfit,
+      monthlyGoal,
       recentTransactions,
       recentInvoices,
       categoryExpenses: processedCategoryExpenses,
@@ -224,13 +244,13 @@ export const getIncomeExpenseData = asyncHandler(async (req: AuthenticatedReques
   try {
     const data = await prisma.$queryRaw<MonthlyTransactionResult[]>`
       SELECT 
-        strftime('%Y-%m', date) as month,
+        TO_CHAR(date, 'YYYY-MM') as month,
         type,
         CAST(COALESCE(SUM(amount), 0) AS TEXT) as total
       FROM transactions
-      WHERE userId = ${userId} 
+      WHERE "userId" = ${userId} 
         AND date >= ${startDate}
-      GROUP BY strftime('%Y-%m', date), type
+      GROUP BY TO_CHAR(date, 'YYYY-MM'), type
       ORDER BY month
     `;
 
@@ -271,37 +291,85 @@ export const getCategoryExpenses = asyncHandler(async (req: AuthenticatedRequest
   const userId = req.user!.id;
   const { period = '30' } = req.query as { period?: string };
   
-  // Validate period parameter
-  const daysBack = Math.min(Math.max(1, parseInt(period, 10) || 30), 365); // Limit to 1-365 days
+  // Handle different period formats
+  let daysBack: number;
+  if (period === 'monthly') {
+    daysBack = 30;
+  } else if (period === 'weekly') {
+    daysBack = 7;
+  } else if (period === 'yearly') {
+    daysBack = 365;
+  } else {
+    daysBack = Math.min(Math.max(1, parseInt(period, 10) || 30), 365); // Limit to 1-365 days
+  }
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - daysBack);
   startDate.setHours(0, 0, 0, 0);
 
   try {
-    const categoryData = await prisma.transaction.groupBy({
-      by: ['category'],
+
+    // Get real expense transactions and group by category
+    // First try DEBIT, then debit if no results
+    let expenseTransactions = await prisma.transaction.findMany({
       where: {
         userId,
         type: 'DEBIT',
         date: { gte: startDate },
         category: { not: null }
       },
-      _sum: { amount: true },
-      _count: { category: true },
-      orderBy: { _sum: { amount: 'desc' } }
+      select: {
+        category: true,
+        amount: true
+      }
     });
 
-    const totalExpenses = (categoryData as CategoryExpenseResult[]).reduce((sum, cat) => sum + (cat._sum.amount ?? 0), 0);
-    const processedData: ProcessedCategoryExpense[] = (categoryData as CategoryExpenseResult[]).map(cat => {
-      const amount = cat._sum.amount ?? 0;
-      const percentage = totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
+    // If no DEBIT transactions found, try lowercase 'debit'
+    if (expenseTransactions.length === 0) {
+      expenseTransactions = await prisma.transaction.findMany({
+        where: {
+          userId,
+          type: 'debit' as any,
+          date: { gte: startDate },
+          category: { not: null }
+        },
+        select: {
+          category: true,
+          amount: true
+        }
+      });
+    }
+
+
+    // Group by category manually
+    const categoryMap = new Map<string, { amount: number; count: number }>();
+    
+    expenseTransactions.forEach(transaction => {
+      const category = transaction.category || 'Uncategorized';
+      const amount = Number(transaction.amount);
+      
+      if (categoryMap.has(category)) {
+        const existing = categoryMap.get(category)!;
+        categoryMap.set(category, {
+          amount: existing.amount + amount,
+          count: existing.count + 1
+        });
+      } else {
+        categoryMap.set(category, { amount, count: 1 });
+      }
+    });
+
+    const totalExpenses = Array.from(categoryMap.values()).reduce((sum, cat) => sum + cat.amount, 0);
+    
+    let processedData: ProcessedCategoryExpense[] = Array.from(categoryMap.entries()).map(([category, data]) => {
+      const percentage = totalExpenses > 0 ? Math.round((data.amount / totalExpenses) * 100) : 0;
       return {
-        category: cat.category || 'Uncategorized',
-        amount,
-        count: cat._count.category ?? 0,
+        category,
+        amount: data.amount,
+        count: data.count,
         percentage
       };
-    });
+    }).sort((a, b) => b.amount - a.amount); // Sort by amount descending
+
 
     const response: ApiResponse<ProcessedCategoryExpense[]> = {
       success: true,
@@ -320,10 +388,13 @@ export const updateGoal = asyncHandler(async (req: AuthenticatedRequest, res: Re
   const userId = req.user!.id;
   const { goal } = req.body;
 
-  if (typeof goal !== 'number' || goal < 0 || goal > 1000000) {
+  // Convert to number if it's a string
+  const goalNumber = typeof goal === 'string' ? parseFloat(goal) : goal;
+  
+  if (typeof goalNumber !== 'number' || isNaN(goalNumber) || goalNumber < 0 || goalNumber > 10000000) {
     return res.status(400).json({
       success: false,
-      message: 'Goal must be a positive number between 0 and 1,000,000'
+      message: 'Goal must be a positive number between 0 and 10,000,000'
     });
   }
 
@@ -331,17 +402,17 @@ export const updateGoal = asyncHandler(async (req: AuthenticatedRequest, res: Re
     // Store goal in settings table
     await prisma.settings.upsert({
       where: { key: `monthly_goal_${userId}` },
-      update: { value: goal.toString() },
+      update: { value: goalNumber.toString() },
       create: {
         key: `monthly_goal_${userId}`,
-        value: goal.toString()
+        value: goalNumber.toString()
       }
     });
 
     const response: ApiResponse<{ goal: number }> = {
       success: true,
       message: 'Monthly goal updated successfully',
-      data: { goal }
+      data: { goal: goalNumber }
     };
 
     res.json(response);
@@ -371,5 +442,91 @@ export const getGoal = asyncHandler(async (req: AuthenticatedRequest, res: Respo
   } catch (error) {
     console.error('Error in getGoal:', error);
     throw new Error('Failed to retrieve monthly goal');
+  }
+});
+
+export const getYearlyProfitData = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { months = '12' } = req.query as { months?: string };
+  
+  // Validate months parameter
+  const monthsBack = Math.min(Math.max(1, parseInt(months, 10) || 12), 24); // Limit to 1-24 months
+  
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setMonth(endDate.getMonth() - monthsBack);
+  startDate.setDate(1);
+  startDate.setHours(0, 0, 0, 0);
+
+  try {
+    const data = await prisma.$queryRaw<MonthlyTransactionResult[]>`
+      SELECT 
+        TO_CHAR(date, 'YYYY-MM') as month,
+        type,
+        CAST(COALESCE(SUM(amount), 0) AS TEXT) as total
+      FROM transactions
+      WHERE "userId" = ${userId} 
+        AND date >= ${startDate}
+      GROUP BY TO_CHAR(date, 'YYYY-MM'), type
+      ORDER BY month
+    `;
+
+    // Process data for profit calculation
+    const monthlyData = new Map<string, { month: string; income: number; expenses: number; profit: number }>();
+    
+    data.forEach((row: MonthlyTransactionResult) => {
+      const monthKey = typeof row.month === 'string' ? row.month : new Date(row.month).toISOString().slice(0, 7);
+      
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, { month: monthKey, income: 0, expenses: 0, profit: 0 });
+      }
+      
+      const monthData = monthlyData.get(monthKey)!;
+      const amount = parseFloat(row.total) || 0;
+      
+      if (row.type === 'CREDIT') {
+        monthData.income = amount;
+      } else {
+        monthData.expenses = amount;
+      }
+      
+      // Calculate profit
+      monthData.profit = monthData.income - monthData.expenses;
+    });
+
+    // Fill in missing months with zero values
+    const result: Array<{ month: string; income: number; expenses: number; profit: number }> = [];
+    const currentDate = new Date(startDate);
+    
+    // Include all months from start to current month
+    while (currentDate.getFullYear() < endDate.getFullYear() || 
+           (currentDate.getFullYear() === endDate.getFullYear() && currentDate.getMonth() <= endDate.getMonth())) {
+      const monthKey = currentDate.toISOString().slice(0, 7);
+      const existingData = monthlyData.get(monthKey);
+      
+      if (existingData) {
+        result.push(existingData);
+      } else {
+        result.push({
+          month: monthKey,
+          income: 0,
+          expenses: 0,
+          profit: 0
+        });
+      }
+      
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+
+    const response: ApiResponse<Array<{ month: string; income: number; expenses: number; profit: number }>> = {
+      success: true,
+      message: 'Yearly profit data retrieved successfully',
+      data: result
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error in getYearlyProfitData:', error);
+    throw new Error('Failed to load yearly profit data');
   }
 });

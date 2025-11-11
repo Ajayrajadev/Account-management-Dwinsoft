@@ -15,6 +15,7 @@ import transactionRoutes from '@/routes/transactions.routes';
 import invoiceRoutes from '@/routes/invoices.routes';
 import dashboardRoutes from '@/routes/dashboard.routes';
 import authRoutes from '@/routes/auth.routes';
+import bankAccountRoutes from '@/routes/bankAccounts.routes';
 
 const app = express();
 
@@ -254,6 +255,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/bank-accounts', bankAccountRoutes);
 
 // Catch-all for undefined routes
 app.use('*', notFoundHandler);

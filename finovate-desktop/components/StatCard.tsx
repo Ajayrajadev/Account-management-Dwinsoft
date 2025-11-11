@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatCurrency } from '@/lib/utils';
 
 interface StatCardProps {
   title: string;
@@ -19,10 +20,7 @@ interface StatCardProps {
 export function StatCard({ title, value, icon: Icon, trend, description }: StatCardProps) {
   const formattedValue =
     typeof value === 'number'
-      ? new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD',
-        }).format(value)
+      ? formatCurrency(value)
       : value;
 
   return (

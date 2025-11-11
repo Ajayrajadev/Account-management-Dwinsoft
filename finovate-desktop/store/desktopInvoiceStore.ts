@@ -77,7 +77,6 @@ export const useDesktopInvoiceStore = create<InvoiceStore>((set, get) => ({
         loading: false 
       });
     } catch (error) {
-      console.error('Error fetching invoices:', error);
       set({ loading: false });
     }
   },
@@ -98,7 +97,6 @@ export const useDesktopInvoiceStore = create<InvoiceStore>((set, get) => ({
       
       return invoice;
     } catch (error) {
-      console.error('Error creating invoice:', error);
       throw error;
     }
   },
@@ -121,7 +119,6 @@ export const useDesktopInvoiceStore = create<InvoiceStore>((set, get) => ({
       
       return updatedInvoice;
     } catch (error) {
-      console.error('Error updating invoice:', error);
       throw error;
     }
   },
@@ -140,7 +137,6 @@ export const useDesktopInvoiceStore = create<InvoiceStore>((set, get) => ({
         filteredInvoices: updatedInvoices 
       });
     } catch (error) {
-      console.error('Error deleting invoice:', error);
       throw error;
     }
   },
@@ -193,7 +189,6 @@ export const useDesktopInvoiceStore = create<InvoiceStore>((set, get) => ({
     try {
       return await (window as any).electronAPI?.files.saveInvoicePDF(invoice);
     } catch (error) {
-      console.error('Error exporting invoice PDF:', error);
       throw error;
     }
   },

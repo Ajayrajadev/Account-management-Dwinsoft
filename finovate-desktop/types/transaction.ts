@@ -7,6 +7,7 @@ export interface Transaction {
   category: string;
   amount: number;
   date: string;
+  bankAccountId?: string;
   recurring?: boolean;
   createdAt?: string;
   updatedAt?: string;

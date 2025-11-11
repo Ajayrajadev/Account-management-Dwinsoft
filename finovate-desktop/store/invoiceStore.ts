@@ -33,7 +33,6 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       const invoices = response.data?.data || [];
       set({ invoices, filteredInvoices: invoices, loading: false });
     } catch (error: any) {
-      console.error('Error fetching invoices:', error);
       set({ error: error.message || 'Failed to fetch invoices', loading: false });
     }
   },
@@ -49,9 +48,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       }));
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Error creating invoice:', error);
-      console.error('Error response:', error.response?.data);
-      set({ error: error.message || 'Failed to create invoice' });
+      set({ error: error.message || 'Failed to add invoice' });
       return Promise.reject(error);
     }
   },
@@ -67,7 +64,6 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       }));
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Error updating invoice:', error);
       set({ error: error.message || 'Failed to update invoice' });
       return Promise.reject(error);
     }
@@ -98,7 +94,6 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       }));
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Error marking invoice as paid:', error);
       set({ error: error.message || 'Failed to mark invoice as paid' });
       return Promise.reject(error);
     }
@@ -115,7 +110,6 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       }));
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Error marking invoice as unpaid:', error);
       set({ error: error.message || 'Failed to mark invoice as unpaid' });
       return Promise.reject(error);
     }
@@ -127,19 +121,12 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       if (!invoice) throw new Error('Invoice not found');
 
       const formData: InvoiceFormData = {
+        invoiceNumber: `${invoice.invoiceNumber}-COPY`,
         clientName: invoice.clientName,
-        clientPhone: invoice.clientPhone,
         clientEmail: invoice.clientEmail,
-        items: invoice.items.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          rate: item.rate,
-        })),
-        taxRate: invoice.taxRate,
-        discount: invoice.discount,
-        discountType: invoice.discountType,
+        amount: invoice.total, // Use total as amount for simplified structure
         date: new Date().toISOString().split('T')[0],
-        notes: invoice.notes,
+        bankAccountId: invoice.bankAccountId,
       };
 
       await get().createInvoice(formData);

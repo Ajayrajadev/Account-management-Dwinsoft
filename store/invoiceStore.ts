@@ -47,7 +47,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       }));
       return Promise.resolve();
     } catch (error: any) {
-      set({ error: error.message || 'Failed to create invoice' });
+      set({ error: error.message || 'Failed to add invoice' });
       return Promise.reject(error);
     }
   },

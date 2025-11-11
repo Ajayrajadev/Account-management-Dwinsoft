@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Wallet,
+  Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transactions', label: 'Transactions', icon: Receipt },
   { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/bank-accounts', label: 'Bank Accounts', icon: Building2 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

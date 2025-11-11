@@ -32,15 +32,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { useTransactionStore } from '@/store/transactionStore';
 import { useDashboardStore } from '@/store/dashboardStore';
+import { useBankAccountStore } from '@/store/bankAccountStore';
 import { toast } from 'sonner';
 import type { TransactionType } from '@/types/transaction';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 
 const transactionSchema = z.object({
   description: z.string().min(1, 'Description is required'),
   category: z.string().min(1, 'Category is required'),
-  amount: z.number().positive('Amount must be positive'),
+  amount: z.union([z.string(), z.number()]).transform(val => val === '' ? 0 : Number(val)).refine(val => val > 0, 'Amount must be positive'),
   date: z.string().min(1, 'Date is required'),
+  bankAccountId: z.string().optional(),
   recurring: z.boolean().optional(),
 });
 
@@ -74,14 +76,22 @@ export function TransactionForm({
   const [open, setOpen] = useState(false);
   const { createTransaction, updateTransaction } = useTransactionStore();
   const { refresh: refreshDashboard } = useDashboardStore();
+  const { bankAccounts, fetchBankAccounts, fetchBankAccount } = useBankAccountStore();
+
+  useEffect(() => {
+    if (open) {
+      fetchBankAccounts();
+    }
+  }, [open, fetchBankAccounts]);
 
   const form = useForm({
-    resolver: zodResolver(transactionSchema),
+    resolver: zodResolver(transactionSchema as any),
     defaultValues: {
       description: transaction?.description || '',
       category: transaction?.category || '',
-      amount: transaction?.amount || 0,
+      amount: transaction?.amount || '',
       date: transaction?.date || new Date().toISOString().split('T')[0],
+      bankAccountId: transaction?.bankAccountId || 'none',
       recurring: transaction?.recurring || false,
     },
   });
@@ -93,7 +103,8 @@ export function TransactionForm({
         ...data,
         type: type.toUpperCase(), // Convert to uppercase for backend
         amount: Number(data.amount),
-        date: new Date(data.date).toISOString()
+        date: new Date(data.date).toISOString(),
+        bankAccountId: data.bankAccountId === 'none' ? undefined : data.bankAccountId // Send undefined if 'none' selected
       };
       
       if (transaction) {
@@ -105,6 +116,12 @@ export function TransactionForm({
       }
       // Refresh both dashboard and transactions
       await refreshDashboard();
+      
+      // If transaction has a bank account, refresh bank account data
+      if (data.bankAccountId && data.bankAccountId !== 'none') {
+        fetchBankAccounts(); // Refresh bank accounts list to update balances
+      }
+      
       // Small delay to ensure backend has processed the transaction
       setTimeout(() => {
         refreshDashboard();
@@ -194,8 +211,58 @@ export function TransactionForm({
                       step="0.01"
                       placeholder="0.00"
                       {...field}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => field.onChange(e.target.value)}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="bankAccountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bank Account (Optional)</FormLabel>
+                  <FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select bank account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No bank account</SelectItem>
+                        {bankAccounts
+                          .filter(account => account.isActive)
+                          .map((account) => {
+                            const currentAmount = Number(form.watch('amount')) || 0;
+                            const accountBalance = Number(account.balance) || 0;
+                            const hasInsufficientBalance = type === 'debit' && currentAmount > 0 && accountBalance < currentAmount;
+                            
+                            return (
+                              <SelectItem 
+                                key={account.id} 
+                                value={account.id}
+                                disabled={hasInsufficientBalance}
+                                className={hasInsufficientBalance ? 'opacity-50 cursor-not-allowed' : ''}
+                              >
+                                <div className="flex flex-col">
+                                  <span>{account.bankName} - {account.accountHolder} (****{account.accountNumber.slice(-4)})</span>
+                                  {hasInsufficientBalance && (
+                                    <span className="text-xs text-red-500 font-medium">
+                                      Insufficient Balance (₹{accountBalance.toLocaleString('en-IN')} available)
+                                    </span>
+                                  )}
+                                  {!hasInsufficientBalance && type === 'debit' && currentAmount > 0 && (
+                                    <span className="text-xs text-green-600">
+                                      Balance: ₹{accountBalance.toLocaleString('en-IN')}
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

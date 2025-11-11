@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useDashboardStore } from '@/store/dashboardStore';
-import { PageShell } from '@/components/PageShell';
-import { StatCard } from '@/components/StatCard';
-import { IncomeExpenseChart } from '@/components/charts/IncomeExpenseChart';
-import { CategoryExpenseChart } from '@/components/charts/CategoryExpenseChart';
+import { useTransactionStore } from '@/store/transactionStore';
+import { useInvoiceStore } from '@/store/invoiceStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatCard } from '@/components/StatCard';
+import { CategoryExpenseChart } from '@/components/charts/CategoryExpenseChart';
+import { IncomeExpenseChart } from '@/components/charts/IncomeExpenseChart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,14 +27,18 @@ import {
   DollarSign,
   FileText,
   Plus,
+  Target,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useTransactionStore } from '@/store/transactionStore';
-import { useInvoiceStore } from '@/store/invoiceStore';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { TransactionForm } from '@/components/modals/TransactionForm';
 import { InvoiceForm } from '@/components/modals/InvoiceForm';
+import { MonthlyProfitModal } from '@/components/modals/MonthlyProfitModal';
+import { PageShell } from '@/components/PageShell';
+import { formatRupees } from '@/lib/utils';
+import { dashboardApi } from '@/lib/api';
 
 export default function DashboardPage() {
   const {
@@ -53,6 +58,8 @@ export default function DashboardPage() {
 
   const [goalValue, setGoalValue] = useState('');
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
+  const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
+  const [yearlyProfitData, setYearlyProfitData] = useState<any[]>([]);
 
   useEffect(() => {
     fetchSummary();
@@ -70,33 +77,49 @@ export default function DashboardPage() {
 
   const handleGoalUpdate = async () => {
     const goal = parseFloat(goalValue);
+    
     if (isNaN(goal) || goal < 0) {
       toast.error('Please enter a valid goal amount');
       return;
     }
-    await updateGoal(goal);
-    setIsGoalDialogOpen(false);
-    toast.success('Goal updated successfully');
-    await refresh();
+    
+    try {
+      await updateGoal(goal);
+      setIsGoalDialogOpen(false);
+      toast.success('Goal updated successfully');
+      await refresh();
+    } catch (error) {
+      toast.error('Failed to update goal');
+    }
+  };
+
+  const handleProfitCardClick = async () => {
+    try {
+      // Use the existing income-expense data as a fallback for demonstration
+      const response = await dashboardApi.getIncomeExpense('12');
+      const incomeExpenseData = response.data?.data || response.data || [];
+      
+      // Transform income-expense data to profit data format
+      const profitData = incomeExpenseData.map((item: any) => ({
+        month: item.month,
+        income: item.income || 0,
+        expenses: item.expenses || 0,
+        profit: (item.income || 0) - (item.expenses || 0)
+      }));
+      
+      setYearlyProfitData(profitData);
+      setIsProfitModalOpen(true);
+    } catch (error) {
+      toast.error('Failed to load profit data');
+    }
   };
 
   const recentTransactions = Array.isArray(transactions) ? transactions.slice(0, 5) : [];
   const recentInvoices = Array.isArray(invoices) ? invoices.slice(0, 5) : [];
 
-  // Mock data if API doesn't return data
-  const mockIncomeExpense = incomeExpenseData.length > 0 ? incomeExpenseData : [
-    { month: 'Jan', income: 5000, expenses: 3000 },
-    { month: 'Feb', income: 6000, expenses: 3500 },
-    { month: 'Mar', income: 5500, expenses: 3200 },
-    { month: 'Apr', income: 7000, expenses: 4000 },
-  ];
-
-  const mockCategoryExpenses = categoryExpenses.length > 0 ? categoryExpenses : [
-    { category: 'Food', amount: 1200, percentage: 30 },
-    { category: 'Transport', amount: 800, percentage: 20 },
-    { category: 'Utilities', amount: 600, percentage: 15 },
-    { category: 'Entertainment', amount: 400, percentage: 10 },
-  ];
+  // Use real data only - no mock data fallback
+  const realIncomeExpense = incomeExpenseData.length > 0 ? incomeExpenseData : [];
+  const realCategoryExpenses = categoryExpenses.length > 0 ? categoryExpenses : [];
 
   return (
     <PageShell
@@ -135,17 +158,19 @@ export default function DashboardPage() {
             isPositive: false,
           }}
         />
-        <StatCard
-          title="Monthly Profit"
-          value={summary?.monthlyProfit || 0}
-          icon={DollarSign}
-        />
+        <div onClick={handleProfitCardClick} className="cursor-pointer">
+          <StatCard
+            title="Monthly Profit"
+            value={summary?.monthlyProfit || 0}
+            icon={DollarSign}
+          />
+        </div>
       </div>
 
       {/* Charts */}
       <div className="grid gap-5 md:grid-cols-2">
-        <IncomeExpenseChart data={mockIncomeExpense} />
-        <CategoryExpenseChart data={mockCategoryExpenses} />
+        <IncomeExpenseChart data={realIncomeExpense} />
+        <CategoryExpenseChart data={realCategoryExpenses} />
       </div>
 
       {/* Goal Tracker and Quick Actions */}
@@ -210,7 +235,7 @@ export default function DashboardPage() {
                 />
               </div>
               <p className="text-sm text-muted-foreground">
-                Goal: ${summary?.monthlyGoal?.toLocaleString() || 'Not set'}
+                Goal: {summary?.monthlyGoal ? formatRupees(summary.monthlyGoal) : 'Not set'}
               </p>
             </div>
           </CardContent>
@@ -233,7 +258,7 @@ export default function DashboardPage() {
             } />
             <InvoiceForm trigger={
               <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md transition-all duration-200 font-medium">
-                <Plus className="mr-2 h-4 w-4" />Create Invoice
+                <Plus className="mr-2 h-4 w-4" />Add Invoice
               </Button>
             } />
           </CardContent>
@@ -271,13 +296,16 @@ export default function DashboardPage() {
                     </div>
                     <p
                       className={`text-sm font-semibold ${
-                        (transaction as any).type === 'CREDIT'
+                        transaction.type === 'credit'
                           ? 'text-green-600 dark:text-green-400'
                           : 'text-red-600 dark:text-red-400'
                       }`}
                     >
-                      {(transaction as any).type === 'CREDIT' ? '+' : '-'}$
-                      {transaction.amount.toLocaleString()}
+                      {transaction.type === 'credit' ? '+' : '-'}₹
+                      {(typeof transaction.amount === 'string' 
+                        ? parseFloat(transaction.amount) 
+                        : transaction.amount
+                      ).toLocaleString('en-IN')}
                     </p>
                   </div>
                 ))}
@@ -310,16 +338,20 @@ export default function DashboardPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium">{invoice.clientName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {invoice.invoiceNumber} • {invoice.issueDate ? format(new Date(invoice.issueDate), 'MMM d, yyyy') : 'No date'}
+                        {invoice.invoiceNumber} • {invoice.date ? format(new Date(invoice.date), 'MMM d, yyyy') : 'No date'}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold">
-                        ${(invoice as any).totalAmount?.toLocaleString() || '0'}
+                        {formatRupees(
+                          typeof invoice.total === 'string' 
+                            ? parseFloat(invoice.total) 
+                            : (invoice.total || 0)
+                        )}
                       </p>
                       <p
                         className={`text-xs ${
-                          (invoice as any).status === 'PAID'
+                          invoice.status === 'paid'
                             ? 'text-green-600 dark:text-green-400'
                             : 'text-yellow-600 dark:text-yellow-400'
                         }`}
@@ -334,6 +366,13 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Monthly Profit Modal */}
+      <MonthlyProfitModal
+        open={isProfitModalOpen}
+        onOpenChange={setIsProfitModalOpen}
+        yearlyData={yearlyProfitData}
+      />
     </PageShell>
   );
 }

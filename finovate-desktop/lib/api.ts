@@ -75,4 +75,5 @@ export const dashboardApi = {
   getIncomeExpense: (period?: string) => api.get('/dashboard/income-expense', { params: { period } }),
   getCategoryExpenses: (period?: string) => api.get('/dashboard/category-expenses', { params: { period } }),
   updateGoal: (goal: number) => api.put('/dashboard/goal', { goal }),
+  getYearlyProfit: (months?: string) => api.get('/dashboard/yearly-profit', { params: { months } }),
 };

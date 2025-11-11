@@ -233,7 +233,7 @@ export default function DashboardPage() {
             } />
             <InvoiceForm trigger={
               <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md transition-all duration-200 font-medium">
-                <Plus className="mr-2 h-4 w-4" />Create Invoice
+                <Plus className="mr-2 h-4 w-4" />Add Invoice
               </Button>
             } />
           </CardContent>

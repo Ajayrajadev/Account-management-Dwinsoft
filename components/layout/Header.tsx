@@ -16,7 +16,7 @@ const pageInfo = {
   },
   '/invoices': {
     title: 'Invoices',
-    description: 'Create and manage your invoices'
+    description: 'Add and manage your invoices'
   },
   '/settings': {
     title: 'Settings',

@@ -4,3 +4,18 @@ import { twMerge } from 'tailwind-merge';
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+// Currency formatting utility for Indian Rupees
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+// Simple rupee formatting without currency symbol
+export function formatRupees(amount: number): string {
+  return `₹${amount.toLocaleString('en-IN')}`;
+}

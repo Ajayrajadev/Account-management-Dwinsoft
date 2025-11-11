@@ -21,6 +21,7 @@ export const TransactionSchema = z.object({
   category: z.string().optional(),
   amount: z.number().positive('Amount must be positive'),
   date: z.string().datetime().optional(),
+  bankAccountId: z.string().optional(),
   recurring: z.boolean().optional().default(false),
   recurringType: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).optional(),
   recurringEndDate: z.string().datetime().optional(),
@@ -50,27 +51,43 @@ export const InvoiceItemSchema = z.object({
 });
 
 export const InvoiceSchema = z.object({
-  invoiceNumber: z.string().optional(), // Auto-generated if not provided
+  invoiceNumber: z.string().min(1, 'Invoice number is required'),
   clientName: z.string().min(1, 'Client name is required'),
-  clientEmail: z.string().email().optional().or(z.literal('')),
-  clientPhone: z.string().optional(),
   clientAddress: z.string().optional(),
-  items: z.array(InvoiceItemSchema).min(1, 'At least one item is required'),
-  // Accept both frontend format (taxRate, discount) and backend format (subtotal, taxAmount, totalAmount)
+  // Support both complex (items-based) and simple (amount-based) invoices
+  items: z.array(InvoiceItemSchema).optional(), // Made optional for simple invoices
+  amount: z.number().positive('Amount must be positive').optional(), // Simple amount field
   subtotal: z.number().min(0).optional(),
-  taxRate: z.number().min(0).max(100).optional(),
-  taxAmount: z.number().min(0).optional(),
-  discount: z.number().min(0).optional(),
-  discountType: z.enum(['percentage', 'fixed']).optional(),
   totalAmount: z.number().positive().optional(),
   // Accept both date formats
   date: z.string().optional(),
   issueDate: z.string().optional(),
-  dueDate: z.string().optional(),
   notes: z.string().optional(),
-});
+  bankAccountId: z.string().optional(),
+}).refine(
+  (data) => {
+    // Either items array OR amount must be provided
+    return (data.items && data.items.length > 0) || (data.amount && data.amount > 0);
+  },
+  {
+    message: 'Either items or amount must be provided',
+    path: ['items'], // This will show the error on the items field
+  }
+);
 
-export const InvoiceUpdateSchema = InvoiceSchema.partial();
+export const InvoiceUpdateSchema = z.object({
+  invoiceNumber: z.string().min(1, 'Invoice number is required').optional(),
+  clientName: z.string().min(1, 'Client name is required').optional(),
+  clientAddress: z.string().optional(),
+  items: z.array(InvoiceItemSchema).optional(),
+  amount: z.number().positive('Amount must be positive').optional(),
+  subtotal: z.number().min(0).optional(),
+  totalAmount: z.number().positive().optional(),
+  date: z.string().optional(),
+  issueDate: z.string().optional(),
+  notes: z.string().optional(),
+  bankAccountId: z.string().optional(),
+});
 
 export const InvoiceStatusSchema = z.object({
   status: z.enum(['PENDING', 'PAID', 'OVERDUE', 'CANCELLED']),
@@ -107,6 +124,7 @@ export interface DashboardSummary {
   monthlyIncome: number;
   monthlyExpenses: number;
   monthlyProfit: number;
+  monthlyGoal?: number;
   recentTransactions: any[];
   recentInvoices: any[];
   categoryExpenses: Array<{

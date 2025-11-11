@@ -124,7 +124,7 @@ export function InvoiceForm({ trigger, invoice, onSuccess }: InvoiceFormProps) {
         toast.success('Invoice updated successfully');
       } else {
         await createInvoice(data);
-        toast.success('Invoice created successfully');
+        toast.success('Invoice added successfully');
       }
       await refreshDashboard();
       setOpen(false);
@@ -140,11 +140,11 @@ export function InvoiceForm({ trigger, invoice, onSuccess }: InvoiceFormProps) {
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{invoice ? 'Edit' : 'Create'} Invoice</DialogTitle>
+          <DialogTitle>{invoice ? 'Edit' : 'Add'} Invoice</DialogTitle>
           <DialogDescription>
             {invoice
               ? 'Update the invoice details'
-              : 'Create a new invoice for your client'}
+              : 'Add a new invoice for your client'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -400,7 +400,7 @@ export function InvoiceForm({ trigger, invoice, onSuccess }: InvoiceFormProps) {
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{invoice ? 'Update' : 'Create'} Invoice</Button>
+              <Button type="submit">{invoice ? 'Update' : 'Add'} Invoice</Button>
             </DialogFooter>
           </form>
         </Form>

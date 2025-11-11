@@ -28,7 +28,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const response = await dashboardApi.getSummary();
       set({ summary: response.data?.data || response.data, loading: false });
     } catch (error: any) {
-      console.error('Error fetching dashboard summary:', error);
       set({ error: error.message || 'Failed to fetch dashboard summary', loading: false });
     }
   },
@@ -38,7 +37,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const response = await dashboardApi.getIncomeExpense(period);
       set({ incomeExpenseData: response.data?.data || response.data });
     } catch (error: any) {
-      console.error('Error fetching income/expense data:', error);
       set({ error: error.message || 'Failed to fetch income/expense data' });
     }
   },
@@ -48,7 +46,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const response = await dashboardApi.getCategoryExpenses(period);
       set({ categoryExpenses: response.data?.data || response.data });
     } catch (error: any) {
-      console.error('Error fetching category expenses:', error);
       set({ error: error.message || 'Failed to fetch category expenses' });
     }
   },

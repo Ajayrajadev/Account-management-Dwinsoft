@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTransactionStore } from '@/store/transactionStore';
 import { PageShell } from '@/components/PageShell';
+import { formatRupees } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,7 +24,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TransactionForm } from '@/components/modals/TransactionForm';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
-import { Plus, Edit, Trash2, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Filter, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { BatchTransactionForm } from '@/components/modals/BatchTransactionForm';
@@ -56,6 +57,7 @@ export default function TransactionsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState('date-desc');
 
   useEffect(() => {
     fetchTransactions();
@@ -88,16 +90,56 @@ export default function TransactionsPage() {
       }
       // Handle both uppercase and lowercase types for backward compatibility
       const transactionType = (t.type as string).toLowerCase();
+      const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : t.amount;
       if (transactionType === 'credit') {
-        totals[t.category].credit += t.amount;
+        totals[t.category].credit += amount;
       } else {
-        totals[t.category].debit += t.amount;
+        totals[t.category].debit += amount;
       }
     });
     return totals;
   };
 
   const categoryTotals = getCategoryTotals();
+
+  const getSortedTransactions = () => {
+    const transactions = [...filteredTransactions];
+    
+    switch (sortBy) {
+      case 'date-desc':
+        return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      case 'date-asc':
+        return transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      case 'amount-desc':
+        return transactions.sort((a, b) => {
+          const amountA = typeof a.amount === 'string' ? parseFloat(a.amount) : a.amount;
+          const amountB = typeof b.amount === 'string' ? parseFloat(b.amount) : b.amount;
+          return amountB - amountA;
+        });
+      case 'amount-asc':
+        return transactions.sort((a, b) => {
+          const amountA = typeof a.amount === 'string' ? parseFloat(a.amount) : a.amount;
+          const amountB = typeof b.amount === 'string' ? parseFloat(b.amount) : b.amount;
+          return amountA - amountB;
+        });
+      case 'description-asc':
+        return transactions.sort((a, b) => a.description.localeCompare(b.description));
+      case 'description-desc':
+        return transactions.sort((a, b) => b.description.localeCompare(a.description));
+      case 'category-asc':
+        return transactions.sort((a, b) => a.category.localeCompare(b.category));
+      case 'category-desc':
+        return transactions.sort((a, b) => b.category.localeCompare(a.category));
+      case 'type-asc':
+        return transactions.sort((a, b) => (a as any).type.localeCompare((b as any).type));
+      case 'type-desc':
+        return transactions.sort((a, b) => (b as any).type.localeCompare((a as any).type));
+      default:
+        return transactions;
+    }
+  };
+
+  const sortedTransactions = getSortedTransactions();
 
   return (
     <PageShell
@@ -246,11 +288,11 @@ export default function TransactionsPage() {
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm">
                     <span className="text-green-600 dark:text-green-400">Income:</span>
-                    <span className="font-semibold">${totals.credit.toFixed(2)}</span>
+                    <span className="font-semibold">{formatRupees(totals.credit)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-red-600 dark:text-red-400">Expense:</span>
-                    <span className="font-semibold">${totals.debit.toFixed(2)}</span>
+                    <span className="font-semibold">{formatRupees(totals.debit)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold pt-1 border-t">
                     <span>Net:</span>
@@ -261,7 +303,7 @@ export default function TransactionsPage() {
                           : 'text-red-600 dark:text-red-400'
                       }
                     >
-                      ${(totals.credit - totals.debit).toFixed(2)}
+{formatRupees(totals.credit - totals.debit)}
                     </span>
                   </div>
                 </div>
@@ -274,7 +316,29 @@ export default function TransactionsPage() {
       {/* Transactions Table */}
       <Card className="bg-white shadow-sm hover:shadow-md transition-all duration-200 border-gray-200 rounded-xl">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-gray-900">All Transactions</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-gray-900">All Transactions</CardTitle>
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date-desc">Date (Newest First)</SelectItem>
+                  <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
+                  <SelectItem value="amount-desc">Amount (High to Low)</SelectItem>
+                  <SelectItem value="amount-asc">Amount (Low to High)</SelectItem>
+                  <SelectItem value="description-asc">Description (A-Z)</SelectItem>
+                  <SelectItem value="description-desc">Description (Z-A)</SelectItem>
+                  <SelectItem value="category-asc">Category (A-Z)</SelectItem>
+                  <SelectItem value="category-desc">Category (Z-A)</SelectItem>
+                  <SelectItem value="type-asc">Type (Credit First)</SelectItem>
+                  <SelectItem value="type-desc">Type (Debit First)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -297,7 +361,7 @@ export default function TransactionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTransactions.map((transaction) => (
+                  {sortedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>
                         <span
@@ -325,8 +389,11 @@ export default function TransactionsPage() {
                               : 'text-red-600 dark:text-red-400'
                           }
                         >
-                          {(transaction as any).type === 'CREDIT' ? '+' : '-'}$
-                          {transaction.amount.toLocaleString()}
+                          {(transaction as any).type === 'CREDIT' ? '+' : '-'}₹
+                          {(typeof transaction.amount === 'string' 
+                            ? parseFloat(transaction.amount) 
+                            : transaction.amount
+                          ).toLocaleString('en-IN')}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">

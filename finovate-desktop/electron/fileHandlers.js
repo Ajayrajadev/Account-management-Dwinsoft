@@ -287,12 +287,12 @@ ${invoiceData.clientAddress || ''}
 
 Items:
 ${invoiceData.items.map(item => 
-  `${item.description} - Qty: ${item.quantity} - Rate: $${item.rate} - Amount: $${item.amount}`
+  `${item.description} - Qty: ${item.quantity} - Rate: ₹${item.rate} - Amount: ₹${item.amount}`
 ).join('\n')}
 
-Subtotal: $${invoiceData.amount}
-Tax: $${invoiceData.taxAmount || 0}
-Total: $${invoiceData.totalAmount}
+Subtotal: ₹${invoiceData.amount}
+Tax: ₹${invoiceData.taxAmount || 0}
+Total: ₹${invoiceData.totalAmount}
 
 Notes:
 ${invoiceData.notes || 'Thank you for your business!'}

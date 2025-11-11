@@ -61,7 +61,6 @@ export const useDesktopTransactionStore = create<TransactionStore>((set, get) =>
         loading: false 
       });
     } catch (error) {
-      console.error('Error fetching transactions:', error);
       set({ loading: false });
     }
   },
@@ -82,7 +81,6 @@ export const useDesktopTransactionStore = create<TransactionStore>((set, get) =>
       
       return transaction;
     } catch (error) {
-      console.error('Error creating transaction:', error);
       throw error;
     }
   },
@@ -105,7 +103,6 @@ export const useDesktopTransactionStore = create<TransactionStore>((set, get) =>
       
       return updatedTransaction;
     } catch (error) {
-      console.error('Error updating transaction:', error);
       throw error;
     }
   },
@@ -124,7 +121,6 @@ export const useDesktopTransactionStore = create<TransactionStore>((set, get) =>
         filteredTransactions: updatedTransactions 
       });
     } catch (error) {
-      console.error('Error deleting transaction:', error);
       throw error;
     }
   },
@@ -174,7 +170,6 @@ export const useDesktopTransactionStore = create<TransactionStore>((set, get) =>
     try {
       return await (window as any).electronAPI?.database.exportData();
     } catch (error) {
-      console.error('Error exporting data:', error);
       throw error;
     }
   },
@@ -187,7 +182,6 @@ export const useDesktopTransactionStore = create<TransactionStore>((set, get) =>
       // Refresh transactions after import
       await get().fetchTransactions();
     } catch (error) {
-      console.error('Error importing data:', error);
       throw error;
     }
   }

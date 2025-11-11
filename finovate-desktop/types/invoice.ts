@@ -12,18 +12,17 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   clientName: string;
-  clientPhone?: string;
   clientEmail?: string;
-  items: InvoiceItem[];
-  subtotal: number;
-  tax: number;
-  taxRate: number;
-  discount: number;
-  discountType: 'percentage' | 'fixed';
-  total: number;
+  items?: InvoiceItem[]; // Made optional for simplified invoices
+  subtotal?: number; // Made optional
+  tax?: number; // Made optional
+  taxRate?: number; // Made optional
+  discount?: number; // Made optional
+  discountType?: 'percentage' | 'fixed'; // Made optional
+  total: number; // Keep required as this is the main amount
   status: InvoiceStatus;
   date: string;
-  dueDate?: string;
+  bankAccountId?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -38,14 +37,11 @@ export interface InvoiceFilters {
 }
 
 export interface InvoiceFormData {
+  invoiceNumber: string;
   clientName: string;
-  clientPhone?: string;
   clientEmail?: string;
-  items: Omit<InvoiceItem, 'id' | 'total'>[];
-  taxRate: number;
-  discount: number;
-  discountType: 'percentage' | 'fixed';
+  amount: number; // Simplified to just amount
   date: string;
-  dueDate?: string;
-  notes?: string;
+  bankAccountId?: string;
+  // Removed items, tax, discount, and notes for simplified structure
 }

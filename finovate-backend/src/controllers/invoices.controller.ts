@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/config/database';
 import { logger } from '@/utils/logger';
 import { AuthenticatedRequest } from '@/middlewares/auth.middleware';
@@ -137,24 +138,25 @@ export const createInvoice = asyncHandler(async (req: AuthenticatedRequest, res:
     invoiceNumber = `INV-${String(parseInt(lastNumber) + 1).padStart(4, '0')}`;
   }
 
-  // Calculate totals from frontend data
-  const items = data.items.map(item => ({
-    ...item,
-    amount: item.amount || (item.quantity * item.rate)
-  }));
-
-  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+  // Handle both complex (items-based) and simple (amount-based) invoices
+  let items, subtotal, totalAmount;
   
-  // Handle discount
-  const discount = data.discount || 0;
-  const discountType = data.discountType || 'percentage';
-  const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
-  const afterDiscount = subtotal - discountAmount;
-  
-  // Handle tax
-  const taxRate = data.taxRate || 0;
-  const taxAmount = (afterDiscount * taxRate) / 100;
-  const totalAmount = afterDiscount + taxAmount;
+  if (data.items && data.items.length > 0) {
+    // Complex invoice with items
+    items = data.items.map(item => ({
+      ...item,
+      amount: item.amount || (item.quantity * item.rate)
+    }));
+    subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+    totalAmount = subtotal;
+  } else if (data.amount) {
+    // Simple invoice with just amount
+    items = null; // No items for simple invoices
+    subtotal = data.amount;
+    totalAmount = data.amount;
+  } else {
+    throw new AppError('Either items or amount must be provided', 400);
+  }
 
   // Use date field if issueDate not provided
   const issueDate = data.issueDate || data.date;
@@ -163,17 +165,14 @@ export const createInvoice = asyncHandler(async (req: AuthenticatedRequest, res:
     data: {
       invoiceNumber,
       clientName: data.clientName,
-      clientEmail: data.clientEmail || null,
-      clientPhone: data.clientPhone || null,
       clientAddress: data.clientAddress || null,
-      items: JSON.stringify(items),
+      items: items ? items : Prisma.JsonNull,
       subtotal,
-      taxAmount,
       totalAmount,
       status: 'PENDING',
       issueDate: issueDate ? new Date(issueDate) : new Date(),
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
       notes: data.notes || null,
+      bankAccountId: data.bankAccountId || null,
       userId
     }
   });
@@ -212,9 +211,6 @@ export const updateInvoice = asyncHandler(async (req: AuthenticatedRequest, res:
   }
   if (data.issueDate) {
     updateData.issueDate = new Date(data.issueDate);
-  }
-  if (data.dueDate) {
-    updateData.dueDate = new Date(data.dueDate);
   }
 
   const invoice = await prisma.invoice.update({
@@ -326,15 +322,28 @@ export const deleteInvoice = asyncHandler(async (req: AuthenticatedRequest, res:
     throw new AppError('Invoice not found', 404);
   }
 
+  // Delete related transactions first (transactions that reference this invoice)
+  // Look for transactions that were created when this invoice was marked as paid
+  await prisma.transaction.deleteMany({
+    where: {
+      userId,
+      description: {
+        contains: existingInvoice.invoiceNumber
+      },
+      category: 'Invoice Payment'
+    }
+  });
+
+  // Then delete the invoice
   await prisma.invoice.delete({
     where: { id }
   });
 
-  logger.info(`Invoice deleted: ${id} by user: ${userId}`);
+  logger.info(`Invoice and related transactions deleted: ${id} by user: ${userId}`);
 
   const response: ApiResponse = {
     success: true,
-    message: 'Invoice deleted successfully'
+    message: 'Invoice and related transactions deleted successfully'
   };
 
   res.json(response);

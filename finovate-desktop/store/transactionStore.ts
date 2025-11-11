@@ -39,16 +39,13 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       
       set({ transactions: processedTransactions, filteredTransactions: processedTransactions, loading: false });
     } catch (error: any) {
-      console.error('Error fetching transactions:', error);
       set({ error: error.message || 'Failed to fetch transactions', loading: false });
     }
   },
 
   createTransaction: async (data) => {
     try {
-      console.log('Creating transaction with data:', data);
       const response = await transactionsApi.create(data);
-      console.log('Transaction creation response:', response);
       const newTransaction = response.data?.data || response.data;
       
       // Convert type to uppercase for consistency
@@ -65,8 +62,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       get().fetchTransactions();
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Error creating transaction:', error);
-      console.error('Error response:', error.response?.data);
       set({ error: error.message || 'Failed to create transaction' });
       return Promise.reject(error);
     }
@@ -89,7 +84,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       }));
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Error batch creating transactions:', error);
       set({ error: error.message || 'Failed to create transactions' });
       return Promise.reject(error);
     }
@@ -112,7 +106,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       }));
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Error updating transaction:', error);
       set({ error: error.message || 'Failed to update transaction' });
       return Promise.reject(error);
     }
