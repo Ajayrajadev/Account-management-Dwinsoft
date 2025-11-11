@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export const api = axios.create({
   baseURL,
@@ -8,6 +8,28 @@ export const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Add request interceptor to include auth token
+api.interceptors.request.use(
+  (config) => {
+    // Get token from localStorage (where zustand persist stores it)
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      try {
+        const { state } = JSON.parse(authStorage);
+        if (state?.token) {
+          config.headers.Authorization = `Bearer ${state.token}`;
+        }
+      } catch (error) {
+        console.error('Error parsing auth storage:', error);
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Transactions API
 export const transactionsApi = {

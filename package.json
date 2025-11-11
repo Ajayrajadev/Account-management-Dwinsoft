@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup": "node -e \"console.log('🚀 Run ./setup.sh (Mac/Linux) or setup.bat (Windows) for automated setup!')\"",
+    "setup:web": "npm install && npm run dev",
+    "setup:all": "npm install && echo 'Web app ready! Check SETUP_GUIDE.md for desktop and backend setup.'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

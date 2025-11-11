@@ -44,12 +44,14 @@ const categories = [
 
 export default function TransactionsPage() {
   const {
+    transactions,
     filteredTransactions,
     loading,
     filters,
     fetchTransactions,
     deleteTransaction,
     setFilters,
+    clearStore,
   } = useTransactionStore();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,8 +60,10 @@ export default function TransactionsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
+    // Clear store and force a fresh fetch of transactions on page load
+    clearStore();
     fetchTransactions();
-  }, []);
+  }, [fetchTransactions, clearStore]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -82,14 +86,22 @@ export default function TransactionsPage() {
 
   const getCategoryTotals = () => {
     const totals: Record<string, { credit: number; debit: number }> = {};
-    filteredTransactions.forEach((t) => {
+    // Use all transactions, not just filtered ones, for category totals
+    const allTransactions = transactions.length > 0 ? transactions : filteredTransactions;
+    
+    allTransactions.forEach((t) => {
+      // Ensure transaction has required fields
+      if (!t || !t.category || !t.type) return;
+      
       if (!totals[t.category]) {
         totals[t.category] = { credit: 0, debit: 0 };
       }
+      
+      // Explicitly check type and ensure it's valid
       if (t.type === 'credit') {
-        totals[t.category].credit += t.amount;
-      } else {
-        totals[t.category].debit += t.amount;
+        totals[t.category].credit += Number(t.amount) || 0;
+      } else if (t.type === 'debit') {
+        totals[t.category].debit += Number(t.amount) || 0;
       }
     });
     return totals;
@@ -110,6 +122,10 @@ export default function TransactionsPage() {
                 Batch Add
               </Button>
             }
+            onSuccess={() => {
+              // Force refresh transactions after batch creation
+              fetchTransactions();
+            }}
           />
           <TransactionForm
             type="credit"
@@ -119,6 +135,10 @@ export default function TransactionsPage() {
                 Add Income
               </Button>
             }
+            onSuccess={() => {
+              // Force refresh transactions after creation
+              fetchTransactions();
+            }}
           />
           <TransactionForm
             type="debit"
@@ -128,6 +148,10 @@ export default function TransactionsPage() {
                 Add Expense
               </Button>
             }
+            onSuccess={() => {
+              // Force refresh transactions after creation
+              fetchTransactions();
+            }}
           />
         </div>
       }

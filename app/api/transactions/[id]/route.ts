@@ -1,29 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Import shared data store
+// Import the shared transactions map from the main route
 // In production, use a database
-// For now, we'll use a simple in-memory store
-// Note: In a real app, this would be a database connection
-const getTransactions = async () => {
-  // This is a placeholder - in production, fetch from database
-  return [];
-};
+const transactionsMap = new Map<string, any>();
 
-const saveTransaction = async (transaction: any) => {
-  // This is a placeholder - in production, save to database
-  return transaction;
-};
-
-const deleteTransactionById = async (id: string) => {
-  // This is a placeholder - in production, delete from database
-  return true;
-};
-
+// This would be shared with the main route in a real app
+// For now, we'll use a simple approach - in production, use a database
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   // In production, fetch from database
+  // For now, return a placeholder
   return NextResponse.json({ error: 'Not found' }, { status: 404 });
 }
 
@@ -32,10 +20,21 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   const body = await request.json();
+  
+  // Ensure type is preserved correctly
+  if (body.type && body.type !== 'credit' && body.type !== 'debit') {
+    return NextResponse.json(
+      { error: 'Invalid transaction type. Must be "credit" or "debit"' },
+      { status: 400 }
+    );
+  }
+  
   // In production, update in database
   const updated = {
     id: params.id,
     ...body,
+    // Explicitly preserve type if provided
+    type: body.type || undefined,
     updatedAt: new Date().toISOString(),
   };
   return NextResponse.json(updated);

@@ -134,13 +134,13 @@ export default function InvoicesPage() {
   return (
     <PageShell
       title="Invoices"
-      description="Create and manage your invoices"
+      description="Add and manage your invoices"
       actions={
         <InvoiceForm
           trigger={
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create Invoice
+              Add Invoice
             </Button>
           }
         />

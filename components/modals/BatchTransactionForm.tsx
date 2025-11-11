@@ -97,12 +97,22 @@ export function BatchTransactionForm({ trigger, onSuccess }: BatchTransactionFor
 
   const onSubmit = async (data: z.infer<typeof batchSchema>) => {
     try {
-      await batchCreateTransactions(data.transactions);
-      toast.success(`${data.transactions.length} transactions created successfully`);
+      // Ensure all transactions have valid types
+      const validTransactions = data.transactions.map((t) => ({
+        ...t,
+        type: t.type === 'credit' || t.type === 'debit' ? t.type : 'debit', // Default to debit if invalid
+      }));
+      
+      await batchCreateTransactions(validTransactions);
+      toast.success(`${validTransactions.length} transactions created successfully`);
       await refreshDashboard();
-      setOpen(false);
-      form.reset();
-      onSuccess?.();
+      
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        setOpen(false);
+        form.reset();
+        onSuccess?.();
+      }, 200);
     } catch (error) {
       toast.error('Failed to create transactions');
     }
